@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boozer App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Boozer Dashboard</h1>
+            <button id="logout-btn" class="btn secondary">Logout</button>
+        </header>
+
+        <main>
+            <section class="card glass">
+                <h2>Add Data</h2>
+                <form id="data-form">
+                    <div class="form-group">
+                        <label for="item">Item Name</label>
+                        <input type="text" id="item" name="item" required placeholder="e.g. Cocktail">
+                    </div>
+                    <div class="form-group">
+                        <label for="quantity">Quantity</label>
+                        <input type="number" id="quantity" name="quantity" required placeholder="1">
+                    </div>
+                    <button type="submit" class="btn primary">Add to Sheet</button>
+                </form>
+            </section>
+
+            <section class="card glass mt-2">
+                <h2>Current Data</h2>
+                <div class="table-container">
+                    <table id="data-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-body">
+                            <tr><td colspan="2" class="text-center">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button id="refresh-btn" class="btn secondary mt-1">Refresh Data</button>
+            </section>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
