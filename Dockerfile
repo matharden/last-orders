@@ -1,5 +1,5 @@
 # Use the official Golang image to create a build artifact.
-FROM golang:1.22-bookworm as builder
+FROM golang:1.26-bookworm as builder
 
 # Create and change to the app directory.
 WORKDIR /app
