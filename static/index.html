@@ -19,12 +19,20 @@
                 <h2>Add Data</h2>
                 <form id="data-form">
                     <div class="form-group">
-                        <label for="item">Item Name</label>
-                        <input type="text" id="item" name="item" required placeholder="e.g. Cocktail">
+                        <label for="drink">Drink</label>
+                        <input type="text" id="drink" name="drink" required placeholder="e.g. Camden Ale">
                     </div>
                     <div class="form-group">
-                        <label for="quantity">Quantity</label>
-                        <input type="number" id="quantity" name="quantity" required placeholder="1">
+                        <label for="amount">Amount</label>
+                        <input type="number" id="amount" name="amount" required step="any" placeholder="e.g. 1">
+                    </div>
+                    <div class="form-group">
+                        <label for="size">Size (ml)</label>
+                        <input type="number" id="size" name="size" required placeholder="e.g. 330">
+                    </div>
+                    <div class="form-group">
+                        <label for="notes">Notes</label>
+                        <input type="text" id="notes" name="notes" placeholder="e.g. delicious, hoppy">
                     </div>
                     <button type="submit" class="btn primary">Add to Sheet</button>
                 </form>
@@ -36,12 +44,15 @@
                     <table id="data-table">
                         <thead>
                             <tr>
-                                <th>Item</th>
-                                <th>Quantity</th>
+                                <th>Date</th>
+                                <th>Drink</th>
+                                <th>Amount</th>
+                                <th>Size</th>
+                                <th>Notes</th>
                             </tr>
                         </thead>
                         <tbody id="data-body">
-                            <tr><td colspan="2" class="text-center">Loading data...</td></tr>
+                            <tr><td colspan="5" class="text-center">Loading data...</td></tr>
                         </tbody>
                     </table>
                 </div>

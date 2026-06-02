@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -179,13 +180,49 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodPost {
 		// Write to sheets
 		var req struct {
-			Values []interface{} `json:"values"`
+			Drink  string  `json:"drink"`
+			Amount float64 `json:"amount"`
+			Size   int     `json:"size"`
+			Notes  string  `json:"notes"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
-		err := sheets.WriteData(req.Values)
+
+		// Read current data to generate next ID
+		data, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read sheet data: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		nextID := 1
+		if len(data) > 0 {
+			lastRow := data[len(data)-1]
+			if len(lastRow) > 0 {
+				var lastID int
+				_, err := fmt.Sscanf(fmt.Sprintf("%v", lastRow[0]), "%d", &lastID)
+				if err == nil {
+					nextID = lastID + 1
+				} else {
+					nextID = len(data)
+				}
+			}
+		}
+
+		dateStr := time.Now().Format("2 Jan")
+
+		values := []interface{}{
+			nextID,
+			dateStr,
+			req.Drink,
+			req.Amount,
+			req.Size,
+			req.Notes,
+		}
+
+		err = sheets.WriteData(values)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to write data: %v", err), http.StatusInternalServerError)
 			return

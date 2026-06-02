@@ -11,8 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
     dataForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const item = document.getElementById('item').value;
-        const quantity = document.getElementById('quantity').value;
+        const drink = document.getElementById('drink').value;
+        const amount = parseFloat(document.getElementById('amount').value);
+        const size = parseInt(document.getElementById('size').value, 10);
+        const notes = document.getElementById('notes').value;
         const submitBtn = dataForm.querySelector('button[type="submit"]');
 
         submitBtn.disabled = true;
@@ -25,7 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    values: [item, quantity]
+                    drink: drink,
+                    amount: amount,
+                    size: size,
+                    notes: notes
                 })
             });
 
@@ -80,26 +85,29 @@ document.addEventListener('DOMContentLoaded', () => {
             dataBody.innerHTML = '';
             
             if (!data || data.length === 0) {
-                dataBody.innerHTML = '<tr><td colspan="2" class="text-center">No data found in sheet.</td></tr>';
+                dataBody.innerHTML = '<tr><td colspan="5" class="text-center">No data found in sheet.</td></tr>';
                 return;
             }
 
-            // Assuming first row is headers if we fetch from row 1, but we can just render everything
-            data.forEach(row => {
+            // Skip first row which contains sheet headers [ID, Drank on, Drink, Amount, Size, Notes]
+            const dataRows = data.slice(1);
+
+            dataRows.forEach(row => {
                 const tr = document.createElement('tr');
-                const td1 = document.createElement('td');
-                const td2 = document.createElement('td');
                 
-                td1.textContent = row[0] || '';
-                td2.textContent = row[1] || '';
+                // Columns: Date (1), Drink (2), Amount (3), Size (4), Notes (5)
+                const columns = [1, 2, 3, 4, 5];
+                columns.forEach(index => {
+                    const td = document.createElement('td');
+                    td.textContent = row[index] || '';
+                    tr.appendChild(td);
+                });
                 
-                tr.appendChild(td1);
-                tr.appendChild(td2);
                 dataBody.appendChild(tr);
             });
         } catch (error) {
             console.error('Error fetching data:', error);
-            dataBody.innerHTML = '<tr><td colspan="2" class="text-center text-red-500">Error loading data. Make sure backend is running and authorized.</td></tr>';
+            dataBody.innerHTML = '<tr><td colspan="5" class="text-center text-red-500">Error loading data. Make sure backend is running and authorized.</td></tr>';
         }
     }
 });
