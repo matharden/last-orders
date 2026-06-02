@@ -68,7 +68,7 @@ gcloud run deploy boozer \
   --region us-central1 \
   --allow-unauthenticated \
   --service-account="<YOUR_SERVICE_ACCOUNT_EMAIL>" \
-  --set-env-vars="SPREADSHEET_ID=...,OAUTH_REDIRECT_URL=placeholder,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
+  --set-env-vars="SPREADSHEET_ID=...,SHEET_READ_RANGE=Sheet1!A2:B,SHEET_WRITE_RANGE=Sheet1!A:B,OAUTH_REDIRECT_URL=placeholder,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
 ```
 
 After this command finishes, it will print your actual Cloud Run URL (e.g., `https://boozer-xyz-uc.a.run.app`).
@@ -83,5 +83,5 @@ gcloud run deploy boozer \
   --region us-central1 \
   --allow-unauthenticated \
   --service-account="<YOUR_SERVICE_ACCOUNT_EMAIL>" \
-  --set-env-vars="SPREADSHEET_ID=...,OAUTH_REDIRECT_URL=https://<YOUR_ACTUAL_URL>/callback,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
+  --set-env-vars="SPREADSHEET_ID=...,SHEET_READ_RANGE=Sheet1!A2:B,SHEET_WRITE_RANGE=Sheet1!A:B,OAUTH_REDIRECT_URL=https://<YOUR_ACTUAL_URL>/callback,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
 ```
