@@ -51,15 +51,37 @@ go run .
 
 ## ☁️ Deploying to Cloud Run
 
-When you are ready to deploy, you can use the Google Cloud CLI (`gcloud`). You don't even need Docker installed locally, as Cloud Build can handle the containerization for you!
+When deploying to Google Cloud Run, **you do not need to upload or use the `GOOGLE_APPLICATION_CREDENTIALS` JSON file.** 
+
+Instead, the best practice is to assign your Service Account directly to the Cloud Run service. The Go application will automatically detect that it's running on GCP and use the assigned Service Account's permissions!
+
+### Step 1: Assign Roles to your Service Account
+Ensure the Service Account you created earlier has permissions to access the Google Sheet. 
+
+### Step 2: First Deploy (to get your URL)
+Because you need the Cloud Run URL to configure Google OAuth, but you need Google OAuth configured to use the app, you have to do a "dummy" deploy first to generate the URL.
 
 ```bash
-# Submit the build to GCP and deploy to Cloud Run
+# Deploy with placeholder OAuth URL
 gcloud run deploy boozer \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-env-vars="SPREADSHEET_ID=...,OAUTH_REDIRECT_URL=https://your-cloud-run-url/callback,..."
+  --service-account="<YOUR_SERVICE_ACCOUNT_EMAIL>" \
+  --set-env-vars="SPREADSHEET_ID=...,OAUTH_REDIRECT_URL=placeholder,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
 ```
 
-*(Note: In production, remember to update your `OAUTH_REDIRECT_URL` to the public Cloud Run URL, and add that URL to your GCP OAuth Client's authorized redirect URIs!)*
+After this command finishes, it will print your actual Cloud Run URL (e.g., `https://boozer-xyz-uc.a.run.app`).
+
+### Step 3: Update OAuth Credentials & Re-deploy
+1. Take your new Cloud Run URL, add `/callback` to the end, and put it in the **Authorized redirect URIs** in your GCP OAuth Console.
+2. Re-run the deploy command, but this time use the real URL:
+
+```bash
+gcloud run deploy boozer \
+  --source . \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --service-account="<YOUR_SERVICE_ACCOUNT_EMAIL>" \
+  --set-env-vars="SPREADSHEET_ID=...,OAUTH_REDIRECT_URL=https://<YOUR_ACTUAL_URL>/callback,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
+```
