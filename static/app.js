@@ -7,10 +7,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch initial data
     fetchData();
 
+    // Set default date to today
+    const setTodayDate = () => {
+        const dateInput = document.getElementById('date');
+        if (dateInput) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            dateInput.value = `${yyyy}-${mm}-${dd}`;
+        }
+    };
+    setTodayDate();
+
     // Handle form submission
     dataForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
+        const date = document.getElementById('date').value;
         const drink = document.getElementById('drink').value;
         const amount = parseFloat(document.getElementById('amount').value);
         const size = parseInt(document.getElementById('size').value, 10);
@@ -27,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
+                    date: date,
                     drink: drink,
                     amount: amount,
                     size: size,
@@ -36,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 dataForm.reset();
+                setTodayDate();
                 await fetchData(); // Refresh table
             } else if (response.status === 401) {
                 window.location.href = '/login';

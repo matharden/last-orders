@@ -180,6 +180,7 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodPost {
 		// Write to sheets
 		var req struct {
+			Date   string  `json:"date"`
 			Drink  string  `json:"drink"`
 			Amount float64 `json:"amount"`
 			Size   int     `json:"size"`
@@ -211,7 +212,17 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 		}
 		nextID := maxID + 1
 
-		dateStr := time.Now().Format("2 Jan")
+		var dateStr string
+		if req.Date != "" {
+			t, err := time.Parse("2006-01-02", req.Date)
+			if err != nil {
+				dateStr = time.Now().Format("2 Jan")
+			} else {
+				dateStr = t.Format("2 Jan")
+			}
+		} else {
+			dateStr = time.Now().Format("2 Jan")
+		}
 
 		values := []interface{}{
 			nextID,
