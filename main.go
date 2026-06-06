@@ -197,19 +197,19 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		nextID := 1
-		if len(data) > 0 {
-			lastRow := data[len(data)-1]
-			if len(lastRow) > 0 {
-				var lastID int
-				_, err := fmt.Sscanf(fmt.Sprintf("%v", lastRow[0]), "%d", &lastID)
+		maxID := 0
+		for _, row := range data {
+			if len(row) > 0 {
+				var id int
+				_, err := fmt.Sscanf(fmt.Sprintf("%v", row[0]), "%d", &id)
 				if err == nil {
-					nextID = lastID + 1
-				} else {
-					nextID = len(data)
+					if id > maxID {
+						maxID = id
+					}
 				}
 			}
 		}
+		nextID := maxID + 1
 
 		dateStr := time.Now().Format("2 Jan")
 
