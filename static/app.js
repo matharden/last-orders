@@ -183,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Skip first row which contains sheet headers [ID, Drank on, Drink, Amount, Size, Notes]
-            const dataRows = data.slice(1);
+            const dataRows = data.slice(1).reverse();
 
             dataRows.forEach(row => {
                 const tr = document.createElement('tr');
