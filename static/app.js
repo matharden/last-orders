@@ -199,6 +199,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Actions Column
                 const actionTd = document.createElement('td');
                 actionTd.className = 'text-center';
+
+                const actionsContainer = document.createElement('div');
+                actionsContainer.className = 'actions-cell';
+
                 const editBtn = document.createElement('button');
                 editBtn.className = 'btn btn-sm edit-btn';
                 editBtn.textContent = 'Edit';
@@ -225,7 +229,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 });
-                actionTd.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn btn-sm delete-btn';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.addEventListener('click', async () => {
+                    const id = row[0];
+                    const drinkName = row[2] || 'this item';
+                    if (confirm(`Are you sure you want to delete "${drinkName}"?`)) {
+                        deleteBtn.disabled = true;
+                        deleteBtn.textContent = '...';
+                        try {
+                            const response = await fetch(`/api/data?id=${id}`, {
+                                method: 'DELETE'
+                            });
+                            if (response.ok) {
+                                // If the item being deleted is currently being edited, cancel editing
+                                if (entryIdInput.value === id) {
+                                    cancelBtn.click();
+                                }
+                                await Promise.all([fetchData(), fetchDrinks()]);
+                            } else if (response.status === 401) {
+                                window.location.href = '/login';
+                            } else {
+                                alert('Failed to delete item. Please check the server logs.');
+                            }
+                        } catch (error) {
+                            console.error('Error deleting data:', error);
+                            alert('An error occurred. Please try again.');
+                        } finally {
+                            deleteBtn.disabled = false;
+                            deleteBtn.textContent = 'Delete';
+                        }
+                    }
+                });
+
+                actionsContainer.appendChild(editBtn);
+                actionsContainer.appendChild(deleteBtn);
+                actionTd.appendChild(actionsContainer);
                 tr.appendChild(actionTd);
                 
                 dataBody.appendChild(tr);

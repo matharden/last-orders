@@ -103,3 +103,53 @@ func UpdateRange(rangeName string, values []interface{}) error {
 
 	return nil
 }
+
+// DeleteRow deletes a row in a sheet by its 0-indexed row number
+func DeleteRow(sheetName string, rowIndex int) error {
+	if svc == nil {
+		return fmt.Errorf("sheets service not initialized")
+	}
+
+	// Fetch spreadsheet metadata to find the SheetId of the sheet with sheetName
+	spreadsheet, err := svc.Spreadsheets.Get(spreadsheetId).Do()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve spreadsheet metadata: %v", err)
+	}
+
+	var sheetId int64
+	found := false
+	for _, sheet := range spreadsheet.Sheets {
+		if sheet.Properties.Title == sheetName {
+			sheetId = sheet.Properties.SheetId
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("sheet %s not found", sheetName)
+	}
+
+	// Create BatchUpdate request to delete the dimension
+	req := &sheets.BatchUpdateSpreadsheetRequest{
+		Requests: []*sheets.Request{
+			{
+				DeleteDimension: &sheets.DeleteDimensionRequest{
+					Range: &sheets.DimensionRange{
+						SheetId:    sheetId,
+						Dimension:  "ROWS",
+						StartIndex: int64(rowIndex),
+						EndIndex:   int64(rowIndex + 1),
+					},
+				},
+			},
+		},
+	}
+
+	_, err = svc.Spreadsheets.BatchUpdate(spreadsheetId, req).Do()
+	if err != nil {
+		return fmt.Errorf("unable to delete row: %v", err)
+	}
+
+	return nil
+}

@@ -390,6 +390,51 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"success"}`))
+	} else if r.Method == http.MethodDelete {
+		idStr := r.URL.Query().Get("id")
+		if idStr == "" {
+			http.Error(w, "Missing id parameter", http.StatusBadRequest)
+			return
+		}
+		var id int
+		_, err := fmt.Sscanf(idStr, "%d", &id)
+		if err != nil {
+			http.Error(w, "Invalid id parameter", http.StatusBadRequest)
+			return
+		}
+
+		// Read current data to find the row index of the matching ID
+		data, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read sheet data: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		rowIndex := -1
+		for i, row := range data {
+			if len(row) > 0 {
+				var rID int
+				_, err := fmt.Sscanf(fmt.Sprintf("%v", row[0]), "%d", &rID)
+				if err == nil && rID == id {
+					rowIndex = i
+					break
+				}
+			}
+		}
+
+		if rowIndex == -1 {
+			http.Error(w, fmt.Sprintf("Entry with ID %d not found", id), http.StatusNotFound)
+			return
+		}
+
+		err = sheets.DeleteRow("Booze log", rowIndex)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to delete row: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"success"}`))
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
