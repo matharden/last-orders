@@ -85,3 +85,21 @@ func ReadData() ([][]interface{}, error) {
 func WriteData(values []interface{}) error {
 	return WriteRange(writeRange, values)
 }
+
+// UpdateRange updates a specific range in the spreadsheet with the given values
+func UpdateRange(rangeName string, values []interface{}) error {
+	if svc == nil {
+		return fmt.Errorf("sheets service not initialized")
+	}
+
+	valueRange := &sheets.ValueRange{
+		Values: [][]interface{}{values},
+	}
+
+	_, err := svc.Spreadsheets.Values.Update(spreadsheetId, rangeName, valueRange).ValueInputOption("USER_ENTERED").Do()
+	if err != nil {
+		return fmt.Errorf("unable to update data in range %s: %v", rangeName, err)
+	}
+
+	return nil
+}

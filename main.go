@@ -280,6 +280,116 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"success"}`))
+	} else if r.Method == http.MethodPut {
+		// Update existing row in sheets
+		var req struct {
+			ID     int     `json:"id"`
+			Date   string  `json:"date"`
+			Drink  string  `json:"drink"`
+			Amount float64 `json:"amount"`
+			Size   int     `json:"size"`
+			Notes  string  `json:"notes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Read current data to find the row index of the matching ID
+		data, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read sheet data: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		rowIndex := -1
+		for i, row := range data {
+			if len(row) > 0 {
+				var id int
+				_, err := fmt.Sscanf(fmt.Sprintf("%v", row[0]), "%d", &id)
+				if err == nil && id == req.ID {
+					rowIndex = i
+					break
+				}
+			}
+		}
+
+		if rowIndex == -1 {
+			http.Error(w, fmt.Sprintf("Entry with ID %d not found", req.ID), http.StatusNotFound)
+			return
+		}
+
+		// Convert date to standard 2 Jan format
+		var dateStr string
+		if req.Date != "" {
+			t, err := time.Parse("2006-01-02", req.Date)
+			if err != nil {
+				_, err2 := time.Parse("2 Jan", req.Date)
+				if err2 == nil {
+					dateStr = req.Date
+				} else {
+					dateStr = time.Now().Format("2 Jan")
+				}
+			} else {
+				dateStr = t.Format("2 Jan")
+			}
+		} else {
+			dateStr = time.Now().Format("2 Jan")
+		}
+
+		values := []interface{}{
+			req.ID,
+			dateStr,
+			req.Drink,
+			req.Amount,
+			req.Size,
+			req.Notes,
+		}
+
+		// Update specific row (row number is rowIndex + 1 because sheet is 1-indexed)
+		rangeName := fmt.Sprintf("Booze log!A%d:F%d", rowIndex+1, rowIndex+1)
+		err = sheets.UpdateRange(rangeName, values)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to update data: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Also check if the drink is new and add to Booze sheet
+		boozeData, err := sheets.ReadRange("Booze!A:E")
+		if err == nil {
+			drinkExists := false
+			trimmedReqDrink := strings.TrimSpace(req.Drink)
+			for _, row := range boozeData {
+				if len(row) > 2 {
+					if strings.EqualFold(strings.TrimSpace(fmt.Sprintf("%v", row[2])), trimmedReqDrink) {
+						drinkExists = true
+						break
+					}
+				}
+			}
+
+			if !drinkExists && trimmedReqDrink != "" {
+				maxBoozeID := 0
+				for _, row := range boozeData {
+					if len(row) > 0 {
+						var id int
+						_, err := fmt.Sscanf(fmt.Sprintf("%v", row[0]), "%d", &id)
+						if err == nil {
+							if id > maxBoozeID {
+								maxBoozeID = id
+							}
+						}
+					}
+				}
+				nextBoozeID := maxBoozeID + 1
+
+				newBoozeRow := []interface{}{nextBoozeID, "", trimmedReqDrink, "", ""}
+				_ = sheets.WriteRange("Booze!A:E", newBoozeRow)
+			}
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"success"}`))
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
