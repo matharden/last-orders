@@ -6,6 +6,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch initial data
     fetchData();
+    fetchDrinks();
+
+    // Function to fetch and display autocomplete drinks
+    async function fetchDrinks() {
+        try {
+            const response = await fetch('/api/drinks');
+            if (response.ok) {
+                const drinks = await response.json();
+                const drinkList = document.getElementById('drink-list');
+                if (drinkList) {
+                    drinkList.innerHTML = '';
+                    drinks.forEach(drink => {
+                        const option = document.createElement('option');
+                        option.value = drink;
+                        drinkList.appendChild(option);
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching drinks list:', error);
+        }
+    }
 
     // Set default date to today
     const setTodayDate = () => {
@@ -52,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 dataForm.reset();
                 setTodayDate();
-                await fetchData(); // Refresh table
+                await Promise.all([fetchData(), fetchDrinks()]); // Refresh table and autocomplete
             } else if (response.status === 401) {
                 window.location.href = '/login';
             } else {

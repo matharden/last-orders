@@ -44,22 +44,22 @@ func Init() error {
 	return nil
 }
 
-// ReadData fetches data from the spreadsheet
-func ReadData() ([][]interface{}, error) {
+// ReadRange fetches data from a specific range in the spreadsheet
+func ReadRange(rangeName string) ([][]interface{}, error) {
 	if svc == nil {
 		return nil, fmt.Errorf("sheets service not initialized")
 	}
 
-	resp, err := svc.Spreadsheets.Values.Get(spreadsheetId, readRange).Do()
+	resp, err := svc.Spreadsheets.Values.Get(spreadsheetId, rangeName).Do()
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve data from sheet: %v", err)
+		return nil, fmt.Errorf("unable to retrieve data from range %s: %v", rangeName, err)
 	}
 
 	return resp.Values, nil
 }
 
-// WriteData appends a row of data to the spreadsheet
-func WriteData(values []interface{}) error {
+// WriteRange appends a row of data to a specific range in the spreadsheet
+func WriteRange(rangeName string, values []interface{}) error {
 	if svc == nil {
 		return fmt.Errorf("sheets service not initialized")
 	}
@@ -68,10 +68,20 @@ func WriteData(values []interface{}) error {
 		Values: [][]interface{}{values},
 	}
 
-	_, err := svc.Spreadsheets.Values.Append(spreadsheetId, writeRange, valueRange).ValueInputOption("USER_ENTERED").Do()
+	_, err := svc.Spreadsheets.Values.Append(spreadsheetId, rangeName, valueRange).ValueInputOption("USER_ENTERED").Do()
 	if err != nil {
-		return fmt.Errorf("unable to append data to sheet: %v", err)
+		return fmt.Errorf("unable to append data to range %s: %v", rangeName, err)
 	}
 
 	return nil
+}
+
+// ReadData fetches data from the default spreadsheet range
+func ReadData() ([][]interface{}, error) {
+	return ReadRange(readRange)
+}
+
+// WriteData appends a row of data to the default spreadsheet range
+func WriteData(values []interface{}) error {
+	return WriteRange(writeRange, values)
 }

@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -64,6 +66,7 @@ func main() {
 
 	// API routes
 	mux.HandleFunc("/api/data", authMiddlewareFunc(handleApiData))
+	mux.HandleFunc("/api/drinks", authMiddlewareFunc(handleApiDrinks))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -238,8 +241,87 @@ func handleApiData(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Failed to write data: %v", err), http.StatusInternalServerError)
 			return
 		}
+
+		// Check if the drink is already in the Booze sheet, and if not, add it
+		boozeData, err := sheets.ReadRange("Booze!A:E")
+		if err == nil {
+			drinkExists := false
+			trimmedReqDrink := strings.TrimSpace(req.Drink)
+			for _, row := range boozeData {
+				if len(row) > 2 {
+					if strings.EqualFold(strings.TrimSpace(fmt.Sprintf("%v", row[2])), trimmedReqDrink) {
+						drinkExists = true
+						break
+					}
+				}
+			}
+
+			if !drinkExists && trimmedReqDrink != "" {
+				// Calculate next ID for the Booze sheet
+				maxBoozeID := 0
+				for _, row := range boozeData {
+					if len(row) > 0 {
+						var id int
+						_, err := fmt.Sscanf(fmt.Sprintf("%v", row[0]), "%d", &id)
+						if err == nil {
+							if id > maxBoozeID {
+								maxBoozeID = id
+							}
+						}
+					}
+				}
+				nextBoozeID := maxBoozeID + 1
+
+				// Append new drink to Booze sheet
+				newBoozeRow := []interface{}{nextBoozeID, "", trimmedReqDrink, "", ""}
+				_ = sheets.WriteRange("Booze!A:E", newBoozeRow) // ignore error to not block logging if just master list append fails
+			}
+		}
+
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"success"}`))
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleApiDrinks(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		data, err := sheets.ReadRange("Booze!A:E")
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read Booze sheet: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		var drinks []string
+		if len(data) > 1 {
+			for _, row := range data[1:] {
+				if len(row) > 2 {
+					drinkName := fmt.Sprintf("%v", row[2])
+					if drinkName != "" {
+						drinks = append(drinks, drinkName)
+					}
+				}
+			}
+		}
+
+		// Remove duplicates
+		uniqueDrinks := make([]string, 0)
+		seen := make(map[string]bool)
+		for _, d := range drinks {
+			d = strings.TrimSpace(d)
+			if d != "" && !seen[strings.ToLower(d)] {
+				seen[strings.ToLower(d)] = true
+				uniqueDrinks = append(uniqueDrinks, d)
+			}
+		}
+
+		// Sort case-insensitively
+		sort.Slice(uniqueDrinks, func(i, j int) bool {
+			return strings.ToLower(uniqueDrinks[i]) < strings.ToLower(uniqueDrinks[j])
+		})
+
+		json.NewEncoder(w).Encode(uniqueDrinks)
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
