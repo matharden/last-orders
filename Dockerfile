@@ -1,5 +1,5 @@
 # Use the official Golang image to create a build artifact.
-FROM golang:1.26-bookworm as builder
+FROM golang:1.26-bookworm as go-builder
 
 # Create and change to the app directory.
 WORKDIR /app
@@ -14,6 +14,15 @@ COPY . ./
 # Build the binary.
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o server
 
+# Use a Node image to build the Svelte frontend
+FROM node:20-alpine as frontend-builder
+
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
+
 # Use the official Debian slim image for a lean production container.
 FROM debian:bookworm-slim
 RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
@@ -23,8 +32,9 @@ RUN set -x && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -
 WORKDIR /app
 
 # Copy the binary to the production image from the builder stage.
-COPY --from=builder /app/server /app/server
-COPY --from=builder /app/static /app/static
+COPY --from=go-builder /app/server /app/server
+# Copy the compiled Svelte frontend to the static directory so main.go serves it
+COPY --from=frontend-builder /app/dist /app/static
 
 # Run the web service on container startup.
 CMD ["/app/server"]
