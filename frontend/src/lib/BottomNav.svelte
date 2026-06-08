@@ -18,7 +18,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/>
     </svg>
-    <span class="mono">Cellar</span>
+    <span class="mono">Home</span>
   </button>
 
   <button class="tab" class:active={$activeTab === 'history'} on:click={() => activeTab.set('history')}>
@@ -38,14 +38,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/>
     </svg>
-    <span class="mono">Stats</span>
+    <span class="mono">Measures</span>
   </button>
 
   <button class="tab" class:active={$activeTab === 'catalog'} on:click={() => activeTab.set('catalog')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
     </svg>
-    <span class="mono">Beers</span>
+    <span class="mono">Cellar</span>
   </button>
 </nav>
 
