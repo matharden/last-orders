@@ -498,8 +498,8 @@ type Drink struct {
 	Drink   string  `json:"drink"`
 	ABV     float64 `json:"abv"`
 	Rating  int     `json:"rating"`
-	Style   string  `json:"style"`
 	Image   string  `json:"image"`
+	Notes   string  `json:"notes"`
 }
 
 type LogEntry struct {
@@ -702,10 +702,10 @@ func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
 			d.Rating = parseInt(row[4])
 		}
 		if len(row) > 5 {
-			d.Style = fmt.Sprintf("%v", row[5])
+			d.Image = fmt.Sprintf("%v", row[5])
 		}
 		if len(row) > 6 {
-			d.Image = fmt.Sprintf("%v", row[6])
+			d.Notes = fmt.Sprintf("%v", row[6])
 		}
 		if d.Drink == "" {
 			continue
@@ -735,8 +735,8 @@ func handleApiCatalogItem(w http.ResponseWriter, r *http.Request) {
 		Drink   string  `json:"drink"`
 		ABV     float64 `json:"abv"`
 		Rating  int     `json:"rating"`
-		Style   string  `json:"style"`
 		Image   string  `json:"image"`
+		Notes   string  `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -759,11 +759,11 @@ func handleApiCatalogItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rangeName := fmt.Sprintf("Booze!A%d:G%d", rowIndex+1, rowIndex+1)
-	if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, req.Style, req.Image}); err != nil {
+	if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, req.Image, req.Notes}); err != nil {
 		http.Error(w, "Failed to update catalog", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Style: req.Style, Image: req.Image})
+	json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Image: req.Image, Notes: req.Notes})
 }
 
 func handleApiLog(w http.ResponseWriter, r *http.Request) {

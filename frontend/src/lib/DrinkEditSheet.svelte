@@ -10,8 +10,8 @@
   let name    = '';
   let abv     = '';
   let rating  = 0;
-  let style   = '';
   let image   = '';
+  let notes   = '';
   let saving  = false;
 
   $: if (drink) {
@@ -19,8 +19,8 @@
     name    = drink.drink   || '';
     abv     = drink.abv     != null ? String(drink.abv) : '';
     rating  = drink.rating  || 0;
-    style   = drink.style   || '';
     image   = drink.image   || '';
+    notes   = drink.notes   || '';
   }
 
   function close() { dispatch('close'); }
@@ -31,10 +31,10 @@
     await updateCatalogEntry(drink.id, {
       brewery,
       drink: name,
-      abv:    parseFloat(abv) || 0,
-      rating: rating,
-      style,
+      abv:   parseFloat(abv) || 0,
+      rating,
       image,
+      notes,
     });
     saving = false;
     close();
@@ -64,15 +64,9 @@
       <input class="field-input" type="text" placeholder="e.g. Neck Oil" bind:value={name} />
     </div>
 
-    <div class="row-pair">
-      <div class="field-group half">
-        <label class="field-label mono">ABV %</label>
-        <input class="field-input" type="number" step="0.1" min="0" max="100" placeholder="4.3" bind:value={abv} />
-      </div>
-      <div class="field-group half">
-        <label class="field-label mono">Style</label>
-        <input class="field-input" type="text" placeholder="e.g. Session IPA" bind:value={style} />
-      </div>
+    <div class="field-group">
+      <label class="field-label mono">ABV %</label>
+      <input class="field-input" type="number" step="0.1" min="0" max="100" placeholder="4.3" bind:value={abv} />
     </div>
 
     <div class="field-group">
@@ -88,8 +82,13 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">Image path / URL</label>
+      <label class="field-label mono">Image URL</label>
       <input class="field-input" type="text" placeholder="Booze_Images/Neck Oil.Image.jpg" bind:value={image} />
+    </div>
+
+    <div class="field-group">
+      <label class="field-label mono">Notes</label>
+      <input class="field-input" type="text" placeholder="e.g. Seasonal, limited edition…" bind:value={notes} />
     </div>
 
     <button class="save-btn" on:click={save} disabled={!name || saving}>
@@ -161,8 +160,6 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
 }
 .field-input:focus { border-color: var(--amber); }
 
-.row-pair { display: flex; gap: 10px; }
-.half { flex: 1; }
 
 .stars {
   display: flex;

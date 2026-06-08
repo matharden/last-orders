@@ -53,7 +53,7 @@
         <div class="mid">
           <span class="brewery mono">{drink.brewery.toUpperCase()}</span>
           <span class="drink-name newsreader">{drink.drink}</span>
-          <span class="style-abv">{drink.style || ''}{drink.style && drink.abv ? ' · ' : ''}{drink.abv ? drink.abv + '%' : ''}</span>
+          <span class="style-abv">{drink.abv ? drink.abv + '%' : ''}</span>
         </div>
         <div class="rating">
           {#if drink.rating}
