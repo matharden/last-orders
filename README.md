@@ -30,6 +30,7 @@ GOOGLE_CLIENT_ID="your-oauth-client-id.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="your-oauth-client-secret"
 OAUTH_REDIRECT_URL="http://localhost:8080/callback"
 AUTHORIZED_EMAIL="your.email@gmail.com" # Only this email can log in
+FRONTEND_URL="http://localhost:5173"
 ```
 
 ### Setup Steps

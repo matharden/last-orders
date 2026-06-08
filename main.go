@@ -126,7 +126,11 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		Secure:   os.Getenv("ENV") == "production",
 	}
 	http.SetCookie(w, cookie)
-	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "/"
+	}
+	http.Redirect(w, r, frontendURL, http.StatusTemporaryRedirect)
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
