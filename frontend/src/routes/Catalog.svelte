@@ -29,7 +29,7 @@
     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
       <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
     </svg>
-    <input class="search-input" type="text" placeholder="Search beers, brewery, style…" bind:value={query} />
+    <input class="search-input" type="search" placeholder="Search beers, brewery, style…" bind:value={query} />
   </div>
 
   <div class="card">
