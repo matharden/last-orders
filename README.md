@@ -4,9 +4,9 @@ A lightweight Go web application that uses built-in Google OAuth 2.0 authenticat
 
 ## 🏗️ Architecture Summary
 
-*   **Backend (`main.go`, `sheets/sheets.go`):** Built with the standard Go `net/http` package. It requires Google Sign-in to access the dashboard, and uses a Service Account to manage data in Google Sheets.
-*   **Frontend (`static/`):** A modern, dark-themed UI built with Vanilla HTML, CSS (`style.css`), and JavaScript (`app.js`). It communicates with the Go backend via JSON APIs (`/api/data`).
-*   **Deployment (`Dockerfile`):** A multi-stage Dockerfile that compiles the Go app into a lean, secure container ready for Google Cloud Run.
+*   **Backend (`main.go`, `sheets/sheets.go`):** Built with Go's `net/http` package. It handles OAuth login, Google Sheets synchronization, and exposes API endpoints (`/api/*`).
+*   **Frontend (`frontend/`):** A modern UI built with Svelte and Vite. In production, this compiles into static assets served by Go from `/app/static` on port `8080`.
+*   **Deployment (`Dockerfile`):** A multi-stage Dockerfile that builds the Svelte assets first, then compiles the Go server and embeds the static Svelte distribution into a lean container.
 
 ## ⚙️ Configuration & Prerequisites
 
@@ -35,19 +35,30 @@ AUTHORIZED_EMAIL="your.email@gmail.com" # Only this email can log in
 ### Setup Steps
 1.  **Google Sheet:** Create a Google Sheet. Share it with the email address of your Service Account (giving it Editor access).
 2.  **Service Account:** In GCP Console, create a Service Account, generate a JSON key, and save it in your project folder. This path becomes your `GOOGLE_APPLICATION_CREDENTIALS`.
-3.  **OAuth Credentials:** In GCP Console (APIs & Services > Credentials), create an OAuth 2.0 Client ID for a Web Application. Add `http://localhost:8080/callback` to the Authorized redirect URIs.
+3.  **OAuth Credentials:** In GCP Console (APIs & Services > Credentials), create an OAuth 2.0 Client ID for a Web Application. Add `http://localhost:8080/callback` and `http://localhost:5173/callback` to the Authorized redirect URIs.
 
-## 🚀 Running Locally
+## 🚀 Running Locally (Docker Compose)
 
-Running the app locally is incredibly fast! The application uses `godotenv` to automatically load your `.env` file.
+The application uses Docker Compose to orchestrate both the Go backend and Svelte frontend in development.
 
-1. Open your terminal in the `boozer` directory.
-2. Ensure your `.env` file is set up correctly.
-3. Run the application:
-```bash
-go run .
-```
-4. Open your browser and navigate to `http://localhost:8080`. You will be prompted to log in with your Google account.
+1. Ensure your `.env` file is set up correctly in the root.
+2. Build and start the containers:
+   ```bash
+   docker-compose up --build
+   ```
+
+### 🔌 Port Guide for Development
+
+When running Docker Compose, the application is accessible on two ports:
+
+*   **Port `5173` (Vite Development Server - USE THIS FOR FRONTEND DEV)**
+    *   **Hot Module Replacement (HMR):** Watches frontend files and instantly updates your browser without reloading.
+    *   **Proxy Configuration:** Automatically proxies API and OAuth routes (`/api`, `/login`, etc.) to the Go backend.
+    *   **URL:** Navigate to `http://localhost:5173` to develop.
+*   **Port `8080` (Go Backend)**
+    *   Exposes backend JSON API routes and OAuth callbacks.
+    *   Serves a **static** build of the frontend, which does *not* auto-update as you edit code during development.
+    *   **URL:** `http://localhost:8080` (used by the frontend proxy under the hood).
 
 ## ☁️ Deploying to Cloud Run
 
