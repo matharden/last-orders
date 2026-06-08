@@ -1,275 +1,121 @@
 <script>
   import { onMount } from 'svelte';
+  import { activeTab, theme, refreshAll, loading } from './lib/stores.js';
+  import BottomNav from './lib/BottomNav.svelte';
+  import LogSheet from './lib/LogSheet.svelte';
+  import Home from './routes/Home.svelte';
+  import History from './routes/History.svelte';
+  import Stats from './routes/Stats.svelte';
+  import Catalog from './routes/Catalog.svelte';
 
-  let data = [];
-  let drinks = [];
-  let loading = true;
-  let errorMsg = '';
+  function toggleTheme() {
+    theme.update(t => t === 'light' ? 'dark' : 'light');
+  }
 
-  // Form state
-  let entryId = '';
-  let date = '';
-  let drink = '';
-  let amount = '';
-  let size = '';
-  let notes = '';
-  let isSubmitting = false;
-
-  // Derived states
-  $: isEdit = entryId !== '';
-
-  // Helper to parse date string to YYYY-MM-DD
-  const parseDateStr = (dateStr) => {
-    if (!dateStr) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return dateStr;
-    }
-    const parts = dateStr.trim().split(/\s+/);
-    if (parts.length >= 2) {
-      const day = parts[0].padStart(2, '0');
-      const monthStr = parts[1].toLowerCase().substring(0, 3);
-      const months = {
-        jan: '01', feb: '02', mar: '03', apr: '04',
-        may: '05', jun: '06', jul: '07', aug: '08',
-        sep: '09', oct: '10', nov: '11', dec: '12'
-      };
-      const month = months[monthStr];
-      if (month) {
-        const year = new Date().getFullYear();
-        return `${year}-${month}-${day}`;
-      }
-    }
-    return getTodayDate();
-  };
-
-  const getTodayDate = () => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const resetForm = () => {
-    entryId = '';
-    drink = '';
-    amount = '';
-    size = '';
-    notes = '';
-    date = getTodayDate();
-  };
-
-  const handleAuthError = (res) => {
+  onMount(async () => {
+    const res = await fetch('/api/catalog');
     if (res.status === 401) {
       window.location.href = '/login';
-      return true;
+      return;
     }
-    return false;
-  };
-
-  const fetchData = async () => {
-    loading = true;
-    errorMsg = '';
-    try {
-      const res = await fetch('/api/data');
-      if (handleAuthError(res)) return;
-
-      if (!res.ok) throw new Error('Failed to fetch data');
-      const result = await res.json();
-
-      if (!result || result.length === 0) {
-        data = [];
-      } else {
-        // Skip header row and reverse
-        data = result.slice(1).reverse();
-      }
-    } catch (err) {
-      console.error(err);
-      errorMsg = 'Error loading data. Make sure backend is running and authorized.';
-    } finally {
-      loading = false;
-    }
-  };
-
-  const fetchDrinks = async () => {
-    try {
-      const res = await fetch('/api/drinks');
-      if (res.ok) {
-        drinks = await res.json();
-      }
-    } catch (err) {
-      console.error('Error fetching drinks:', err);
-    }
-  };
-
-  const refreshData = async () => {
-    await Promise.all([fetchData(), fetchDrinks()]);
-  };
-
-  onMount(() => {
-    resetForm();
-    refreshData();
+    await refreshAll();
   });
-
-  const submitForm = async () => {
-    isSubmitting = true;
-    const method = isEdit ? 'PUT' : 'POST';
-
-    const payload = {
-      date,
-      drink,
-      amount: parseFloat(amount),
-      size: parseInt(size, 10),
-      notes
-    };
-
-    if (isEdit) {
-      payload.id = parseInt(entryId, 10);
-    }
-
-    try {
-      const res = await fetch('/api/data', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (handleAuthError(res)) return;
-
-      if (res.ok) {
-        resetForm();
-        await refreshData();
-      } else {
-        alert(`Failed to ${isEdit ? 'update' : 'add'} data.`);
-      }
-    } catch (err) {
-      console.error(err);
-      alert('An error occurred. Please try again.');
-    } finally {
-      isSubmitting = false;
-    }
-  };
-
-  const editEntry = (row) => {
-    entryId = row[0];
-    date = parseDateStr(row[1] || '');
-    drink = row[2] || '';
-    amount = row[3] || '';
-    size = row[4] || '';
-    notes = row[5] || '';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const deleteEntry = async (id, drinkName) => {
-    if (!confirm(`Are you sure you want to delete "${drinkName}"?`)) return;
-
-    try {
-      const res = await fetch(`/api/data?id=${id}`, { method: 'DELETE' });
-      if (handleAuthError(res)) return;
-
-      if (res.ok) {
-        if (entryId === id) resetForm();
-        await refreshData();
-      } else {
-        alert('Failed to delete item.');
-      }
-    } catch (err) {
-      console.error(err);
-      alert('An error occurred. Please try again.');
-    }
-  };
 </script>
 
-<div class="app-container">
-  <header>
-    <h1>Boozer Dashboard</h1>
-    <button on:click={() => window.location.href = '/logout'} class="btn secondary">Logout</button>
-  </header>
+<div class="glow"></div>
 
-  <main>
-    <section class="card glass">
-      <h2>{isEdit ? 'Edit Entry' : 'Add Data'}</h2>
-      <form on:submit|preventDefault={submitForm}>
-        <div class="form-group">
-          <label for="date">Date</label>
-          <input type="date" id="date" bind:value={date} required>
-        </div>
-        <div class="form-group">
-          <label for="drink">Drink</label>
-          <input type="text" id="drink" bind:value={drink} list="drink-list" required placeholder="e.g. Camden Ale">
-          <datalist id="drink-list">
-            {#each drinks as d}
-            <option value={d}></option>
-            {/each}
-          </datalist>
-        </div>
-        <div class="form-group">
-          <label for="amount">Amount</label>
-          <input type="number" id="amount" bind:value={amount} required step="any" placeholder="e.g. 1">
-        </div>
-        <div class="form-group">
-          <label for="size">Size (ml)</label>
-          <input type="number" id="size" bind:value={size} required placeholder="e.g. 330">
-        </div>
-        <div class="form-group">
-          <label for="notes">Notes</label>
-          <input type="text" id="notes" bind:value={notes} placeholder="e.g. delicious, hoppy">
-        </div>
-        <div class="form-actions">
-          <button type="submit" disabled={isSubmitting} class="btn primary">
-            {isSubmitting ? (isEdit ? 'Updating...' : 'Adding...') : (isEdit ? 'Update Entry' : 'Add to Sheet')}
-          </button>
-          {#if isEdit}
-          <button type="button" on:click={resetForm} class="btn secondary">Cancel</button>
-          {/if}
-        </div>
-      </form>
-    </section>
-
-    <section class="card glass mt-2">
-      <h2>Current Data</h2>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Drink</th>
-              <th>Amount</th>
-              <th>Size</th>
-              <th>Notes</th>
-              <th class="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#if loading}
-            <tr><td colspan="6" class="text-center">Loading data...</td></tr>
-            {:else if errorMsg}
-            <tr><td colspan="6" class="text-center text-red-500">{errorMsg}</td></tr>
-            {:else if data.length === 0}
-            <tr><td colspan="6" class="text-center">No data found in sheet.</td></tr>
-            {:else}
-            {#each data as row}
-            <tr>
-              <td>{row[1] || ''}</td>
-              <td>{row[2] || ''}</td>
-              <td>{row[3] || ''}</td>
-              <td>{row[4] || ''}</td>
-              <td>{row[5] || ''}</td>
-              <td class="text-center">
-                <div class="actions-cell">
-                  <button on:click={() => editEntry(row)} class="btn btn-sm edit-btn">Edit</button>
-                  <button on:click={() => deleteEntry(row[0], row[2] || 'this item')} class="btn btn-sm delete-btn">Delete</button>
-                </div>
-              </td>
-            </tr>
-            {/each}
-            {/if}
-          </tbody>
-        </table>
-      </div>
-      <button on:click={refreshData} class="btn secondary mt-1">
-        {loading ? 'Refreshing...' : 'Refresh Data'}
-      </button>
-    </section>
-  </main>
+<div class="top-bar">
+  <button class="theme-btn" on:click={toggleTheme} aria-label="Toggle theme">
+    {#if $theme === 'light'}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    {:else}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+      </svg>
+    {/if}
+  </button>
+  <button class="logout-btn mono" on:click={() => window.location.href = '/logout'}>logout</button>
 </div>
+
+{#if $loading}
+  <div class="loader">
+    <span class="mono">loading…</span>
+  </div>
+{:else if $activeTab === 'home'}
+  <Home />
+{:else if $activeTab === 'history'}
+  <History />
+{:else if $activeTab === 'stats'}
+  <Stats />
+{:else if $activeTab === 'catalog'}
+  <Catalog />
+{/if}
+
+<BottomNav />
+<LogSheet />
+
+<style>
+.glow {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 200px;
+  background: var(--glow);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.theme-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: color .15s;
+}
+.theme-btn:hover { color: var(--amber); }
+.theme-btn svg { width: 18px; height: 18px; }
+
+.logout-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color .15s;
+}
+.logout-btn:hover { color: var(--amber); }
+
+.loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 60px;
+  color: var(--ink-3);
+  font-size: 13px;
+  letter-spacing: .14em;
+}
+</style>

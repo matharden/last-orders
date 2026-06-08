@@ -67,6 +67,9 @@ func main() {
 	// API routes
 	mux.HandleFunc("/api/data", authMiddlewareFunc(handleApiData))
 	mux.HandleFunc("/api/drinks", authMiddlewareFunc(handleApiDrinks))
+	mux.HandleFunc("/api/catalog", authMiddlewareFunc(handleApiCatalog))
+	mux.HandleFunc("/api/log/{id}", authMiddlewareFunc(handleApiLogItem))
+	mux.HandleFunc("/api/log", authMiddlewareFunc(handleApiLog))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -480,4 +483,291 @@ func handleApiDrinks(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// ---- Structured types for the new frontend ----
+
+type Drink struct {
+	ID      int     `json:"id"`
+	Brewery string  `json:"brewery"`
+	Drink   string  `json:"drink"`
+	ABV     float64 `json:"abv"`
+	Rating  int     `json:"rating"`
+	Style   string  `json:"style"`
+	Image   string  `json:"image"`
+}
+
+type LogEntry struct {
+	ID     int     `json:"id"`
+	Date   string  `json:"date"`
+	Drink  string  `json:"drink"`
+	Amount float64 `json:"amount"`
+	Size   int     `json:"size"`
+	Notes  string  `json:"notes"`
+}
+
+func parseDateToISO(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return time.Now().Format("2006-01-02")
+	}
+	if _, err := time.Parse("2006-01-02", s); err == nil {
+		return s
+	}
+	if t, err := time.Parse("2 Jan", s); err == nil {
+		year := time.Now().Year()
+		if t.Month() > time.Now().Month()+1 {
+			year--
+		}
+		return fmt.Sprintf("%d-%02d-%02d", year, int(t.Month()), t.Day())
+	}
+	return s
+}
+
+func parseFloat(v interface{}) float64 {
+	var f float64
+	fmt.Sscanf(fmt.Sprintf("%v", v), "%f", &f)
+	return f
+}
+
+func parseInt(v interface{}) int {
+	var i int
+	fmt.Sscanf(fmt.Sprintf("%v", v), "%d", &i)
+	return i
+}
+
+func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	rows, err := sheets.ReadRange("Booze!A:G")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to read catalog: %v", err), http.StatusInternalServerError)
+		return
+	}
+	var result []Drink
+	start := 0
+	if len(rows) > 0 {
+		var id int
+		if _, err := fmt.Sscanf(fmt.Sprintf("%v", rows[0][0]), "%d", &id); err != nil {
+			start = 1
+		}
+	}
+	for _, row := range rows[start:] {
+		if len(row) < 3 {
+			continue
+		}
+		d := Drink{
+			ID:      parseInt(row[0]),
+			Brewery: fmt.Sprintf("%v", row[1]),
+			Drink:   fmt.Sprintf("%v", row[2]),
+		}
+		if len(row) > 3 {
+			d.ABV = parseFloat(row[3])
+		}
+		if len(row) > 4 {
+			d.Rating = parseInt(row[4])
+		}
+		if len(row) > 5 {
+			d.Style = fmt.Sprintf("%v", row[5])
+		}
+		if len(row) > 6 {
+			d.Image = fmt.Sprintf("%v", row[6])
+		}
+		if d.Drink == "" {
+			continue
+		}
+		result = append(result, d)
+	}
+	if result == nil {
+		result = []Drink{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func handleApiLog(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodGet:
+		rows, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to read log: %v", err), http.StatusInternalServerError)
+			return
+		}
+		var result []LogEntry
+		start := 0
+		if len(rows) > 0 {
+			var id int
+			if _, err := fmt.Sscanf(fmt.Sprintf("%v", rows[0][0]), "%d", &id); err != nil {
+				start = 1
+			}
+		}
+		for _, row := range rows[start:] {
+			if len(row) < 3 {
+				continue
+			}
+			e := LogEntry{
+				ID:    parseInt(row[0]),
+				Date:  parseDateToISO(fmt.Sprintf("%v", row[1])),
+				Drink: fmt.Sprintf("%v", row[2]),
+			}
+			if len(row) > 3 {
+				e.Amount = parseFloat(row[3])
+			}
+			if len(row) > 4 {
+				e.Size = parseInt(row[4])
+			}
+			if len(row) > 5 {
+				e.Notes = fmt.Sprintf("%v", row[5])
+			}
+			result = append(result, e)
+		}
+		if result == nil {
+			result = []LogEntry{}
+		}
+		json.NewEncoder(w).Encode(result)
+
+	case http.MethodPost:
+		var req struct {
+			Date   string  `json:"date"`
+			Drink  string  `json:"drink"`
+			Amount float64 `json:"amount"`
+			Size   int     `json:"size"`
+			Notes  string  `json:"notes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		rows, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, "Failed to read log", http.StatusInternalServerError)
+			return
+		}
+		maxID := 0
+		for _, row := range rows {
+			if id := parseInt(row[0]); id > maxID {
+				maxID = id
+			}
+		}
+		nextID := maxID + 1
+		dateStr := time.Now().Format("2 Jan")
+		if req.Date != "" {
+			if t, err := time.Parse("2006-01-02", req.Date); err == nil {
+				dateStr = t.Format("2 Jan")
+			}
+		}
+		if err := sheets.WriteData([]interface{}{nextID, dateStr, req.Drink, req.Amount, req.Size, req.Notes}); err != nil {
+			http.Error(w, "Failed to write log", http.StatusInternalServerError)
+			return
+		}
+		addToCatalogIfNew(req.Drink)
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(LogEntry{ID: nextID, Date: req.Date, Drink: req.Drink, Amount: req.Amount, Size: req.Size, Notes: req.Notes})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func handleApiLogItem(w http.ResponseWriter, r *http.Request) {
+	id := parseInt(r.PathValue("id"))
+	if id == 0 {
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	switch r.Method {
+	case http.MethodPut:
+		var req struct {
+			Date   string  `json:"date"`
+			Drink  string  `json:"drink"`
+			Amount float64 `json:"amount"`
+			Size   int     `json:"size"`
+			Notes  string  `json:"notes"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		rows, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, "Failed to read log", http.StatusInternalServerError)
+			return
+		}
+		rowIndex := -1
+		for i, row := range rows {
+			if parseInt(row[0]) == id {
+				rowIndex = i
+				break
+			}
+		}
+		if rowIndex == -1 {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+		dateStr := time.Now().Format("2 Jan")
+		if req.Date != "" {
+			if t, err := time.Parse("2006-01-02", req.Date); err == nil {
+				dateStr = t.Format("2 Jan")
+			}
+		}
+		rangeName := fmt.Sprintf("Booze log!A%d:F%d", rowIndex+1, rowIndex+1)
+		if err := sheets.UpdateRange(rangeName, []interface{}{id, dateStr, req.Drink, req.Amount, req.Size, req.Notes}); err != nil {
+			http.Error(w, "Failed to update log", http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+
+	case http.MethodDelete:
+		rows, err := sheets.ReadData()
+		if err != nil {
+			http.Error(w, "Failed to read log", http.StatusInternalServerError)
+			return
+		}
+		rowIndex := -1
+		for i, row := range rows {
+			if parseInt(row[0]) == id {
+				rowIndex = i
+				break
+			}
+		}
+		if rowIndex == -1 {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+		if err := sheets.DeleteRow("Booze log", rowIndex); err != nil {
+			http.Error(w, "Failed to delete row", http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func addToCatalogIfNew(drinkName string) {
+	drinkName = strings.TrimSpace(drinkName)
+	if drinkName == "" {
+		return
+	}
+	rows, err := sheets.ReadRange("Booze!A:E")
+	if err != nil {
+		return
+	}
+	for _, row := range rows {
+		if len(row) > 2 && strings.EqualFold(strings.TrimSpace(fmt.Sprintf("%v", row[2])), drinkName) {
+			return
+		}
+	}
+	maxID := 0
+	for _, row := range rows {
+		if id := parseInt(row[0]); id > maxID {
+			maxID = id
+		}
+	}
+	_ = sheets.WriteRange("Booze!A:E", []interface{}{maxID + 1, "", drinkName, "", ""})
 }
