@@ -752,8 +752,10 @@ func handleApiLog(w http.ResponseWriter, r *http.Request) {
 		}
 		maxID := 0
 		for _, row := range rows {
-			if id := parseInt(row[0]); id > maxID {
-				maxID = id
+			if len(row) > 0 {
+				if id := parseInt(row[0]); id > maxID {
+					maxID = id
+				}
 			}
 		}
 		nextID := maxID + 1
@@ -869,8 +871,10 @@ func addToCatalogIfNew(drinkName string) {
 	}
 	maxID := 0
 	for _, row := range rows {
-		if id := parseInt(row[0]); id > maxID {
-			maxID = id
+		if len(row) > 0 {
+			if id := parseInt(row[0]); id > maxID {
+				maxID = id
+			}
 		}
 	}
 	_ = sheets.WriteRange("Booze!A:E", []interface{}{maxID + 1, "", drinkName, "", ""})
