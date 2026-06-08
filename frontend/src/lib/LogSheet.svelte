@@ -1,5 +1,5 @@
 <script>
-  import { sheet, catalog, addLogEntry } from './stores.js';
+  import { sheet, catalog, addLogEntry, updateLogEntry, deleteLogEntry } from './stores.js';
   import { unitsFor, SIZE_LABELS } from './units.js';
 
   const SIZES   = [100, 330, 500, 568];
@@ -27,20 +27,32 @@
     suggestions = [];
   }
 
+  const resetSheet = () =>
+    sheet.set({ open: false, id: null, drink: '', abv: null, size: 500, amount: 1, notes: '', date: new Date().toISOString().slice(0, 10) });
+
   async function save() {
     if (!$sheet.drink) return;
-    const ok = await addLogEntry({
+    const payload = {
       date:   $sheet.date || new Date().toISOString().slice(0, 10),
       drink:  $sheet.drink,
       amount: $sheet.amount,
       size:   $sheet.size,
       notes:  $sheet.notes,
-    });
+    };
+    const ok = $sheet.id
+      ? await updateLogEntry($sheet.id, payload)
+      : await addLogEntry(payload);
     if (ok) {
-      sheet.set({ open: false, drink: '', abv: null, size: 500, amount: 1, notes: '', date: new Date().toISOString().slice(0, 10) });
+      resetSheet();
       suggestions = [];
       showToast();
     }
+  }
+
+  async function handleDelete() {
+    const id = $sheet.id;
+    resetSheet();
+    await deleteLogEntry(id);
   }
 
   function showToast() {
@@ -50,7 +62,7 @@
   }
 
   function close() {
-    sheet.update(s => ({ ...s, open: false }));
+    resetSheet();
     suggestions = [];
   }
 </script>
@@ -66,8 +78,19 @@
   <div class="scrim" on:click={close}></div>
   <div class="sheet" role="dialog" aria-modal="true">
     <div class="handle"></div>
-    <h2 class="newsreader">Pour one in</h2>
-    <p class="hint">Log a drink to your journal.</p>
+    <div class="sheet-header">
+      <div>
+        <h2 class="newsreader">{$sheet.id ? 'Edit entry' : 'Pour one in'}</h2>
+        <p class="hint">{$sheet.id ? 'Update or delete this log entry.' : 'Log a drink to your journal.'}</p>
+      </div>
+      {#if $sheet.id}
+        <button class="delete-btn" on:click={handleDelete} aria-label="Delete entry">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+          </svg>
+        </button>
+      {/if}
+    </div>
 
     <div class="field-group">
       <label class="field-label mono">What are you having?</label>
@@ -172,8 +195,27 @@
   margin: 0 auto 16px;
 }
 
+.sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
 h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
-.hint { font-size: 14px; color: var(--ink-2); margin-bottom: 20px; }
+.hint { font-size: 14px; color: var(--ink-2); }
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  padding: 4px;
+  border-radius: 8px;
+  transition: color .15s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.delete-btn:hover { color: #c0392b; }
+.delete-btn svg { width: 20px; height: 20px; display: block; }
 
 .field-group { margin-bottom: 16px; }
 .field-label {

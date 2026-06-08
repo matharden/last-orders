@@ -4,9 +4,10 @@
 
   export let entry;        // enriched LogEntry (has .units, .abv)
   export let last = false;
+  export let clickable = false;
 </script>
 
-<div class="row" class:last>
+<div class="row" class:last class:clickable on:click>
   <div class="mat" style="background:{labelColor(entry.drink, $theme)}">
     <span class="initials newsreader">{drinkInitials(entry.drink)}</span>
   </div>
@@ -29,6 +30,8 @@
   border-bottom: 1px solid var(--line);
 }
 .row.last { border-bottom: none; }
+.row.clickable { cursor: pointer; border-radius: 8px; margin: 0 -8px; padding-left: 8px; padding-right: 8px; transition: background .12s; }
+.row.clickable:hover { background: var(--paper-2); }
 
 .mat {
   width: 46px;

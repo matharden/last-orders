@@ -1,7 +1,20 @@
 <script>
   import JournalRow from '../lib/JournalRow.svelte';
-  import { enrichedLog } from '../lib/stores.js';
+  import { enrichedLog, sheet } from '../lib/stores.js';
   import { fmtDate, fmtWeekday } from '../lib/units.js';
+
+  function openEdit(entry) {
+    sheet.set({
+      open: true,
+      id: entry.id,
+      drink: entry.drink,
+      abv: entry.abv,
+      size: entry.size || 500,
+      amount: entry.amount || 1,
+      notes: entry.notes || '',
+      date: entry.date,
+    });
+  }
 
   $: groups = (() => {
     const map = {};
@@ -26,7 +39,7 @@
       <div class="rule"></div>
       <div class="card">
         {#each entries as entry, i}
-          <JournalRow {entry} last={i === entries.length - 1} />
+          <JournalRow {entry} last={i === entries.length - 1} clickable on:click={() => openEdit(entry)} />
         {/each}
       </div>
     </div>

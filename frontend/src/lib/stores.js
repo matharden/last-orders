@@ -21,6 +21,7 @@ export const activeTab = writable('home');
 // ---- Log sheet state ----
 export const sheet = writable({
   open: false,
+  id: null,       // null = create, number = edit
   drink: '',
   abv: null,
   size: 500,
@@ -93,6 +94,18 @@ export async function addLogEntry(entry) {
     } else {
       await fetchLog();
     }
+  }
+  return res.ok;
+}
+
+export async function updateLogEntry(id, entry) {
+  const res = await fetch(`/api/log/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  if (res.ok) {
+    log.update(l => l.map(e => e.id === id ? { ...e, ...entry } : e));
   }
   return res.ok;
 }
