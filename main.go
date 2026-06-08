@@ -498,12 +498,137 @@ type Drink struct {
 }
 
 type LogEntry struct {
-	ID     int     `json:"id"`
+	ID     string  `json:"id"`
 	Date   string  `json:"date"`
 	Drink  string  `json:"drink"`
 	Amount float64 `json:"amount"`
 	Size   int     `json:"size"`
 	Notes  string  `json:"notes"`
+}
+
+func parseRowsToLogEntries(rows [][]interface{}, start int) []LogEntry {
+	if len(rows) == 0 {
+		return []LogEntry{}
+	}
+
+	type rawEntry struct {
+		row   []interface{}
+		t     time.Time
+		month time.Month
+		day   int
+		hasT  bool
+	}
+
+	raws := make([]rawEntry, len(rows))
+	for i := start; i < len(rows); i++ {
+		row := rows[i]
+		if len(row) < 3 {
+			continue
+		}
+		rawDate := strings.TrimSpace(fmt.Sprintf("%v", row[1]))
+		
+		if t, err := time.Parse("2006-01-02", rawDate); err == nil {
+			raws[i] = rawEntry{
+				row:   row,
+				t:     t,
+				month: t.Month(),
+				day:   t.Day(),
+				hasT:  true,
+			}
+		} else if t, err := time.Parse("2 Jan", rawDate); err == nil {
+			raws[i] = rawEntry{
+				row:   row,
+				month: t.Month(),
+				day:   t.Day(),
+				hasT:  false,
+			}
+		} else {
+			tNow := time.Now()
+			raws[i] = rawEntry{
+				row:   row,
+				month: tNow.Month(),
+				day:   tNow.Day(),
+				hasT:  false,
+			}
+		}
+	}
+
+	now := time.Now()
+	currentYear := now.Year()
+
+	lastYear := currentYear
+	for i := len(raws) - 1; i >= start; i-- {
+		if raws[i].row == nil {
+			continue
+		}
+		if raws[i].hasT {
+			lastYear = raws[i].t.Year()
+			break
+		}
+	}
+
+	assignedYears := make([]int, len(raws))
+	activeYear := lastYear
+	var nextMonth time.Month = 0
+	var nextHasVal bool = false
+
+	for i := len(raws) - 1; i >= start; i-- {
+		if raws[i].row == nil {
+			continue
+		}
+		
+		if raws[i].hasT {
+			activeYear = raws[i].t.Year()
+			assignedYears[i] = activeYear
+			nextMonth = raws[i].month
+			nextHasVal = true
+			continue
+		}
+
+		if nextHasVal {
+			currMonth := raws[i].month
+			if int(currMonth) - int(nextMonth) >= 6 {
+				activeYear--
+			}
+		}
+		
+		assignedYears[i] = activeYear
+		nextMonth = raws[i].month
+		nextHasVal = true
+	}
+
+	var result []LogEntry
+	for i := start; i < len(raws); i++ {
+		r := raws[i]
+		if r.row == nil {
+			continue
+		}
+		
+		var dateStr string
+		if r.hasT {
+			dateStr = r.t.Format("2006-01-02")
+		} else {
+			dateStr = fmt.Sprintf("%d-%02d-%02d", assignedYears[i], int(r.month), r.day)
+		}
+
+		e := LogEntry{
+			ID:    strings.TrimSpace(fmt.Sprintf("%v", r.row[0])),
+			Date:  dateStr,
+			Drink: fmt.Sprintf("%v", r.row[2]),
+		}
+		if len(r.row) > 3 {
+			e.Amount = parseFloat(r.row[3])
+		}
+		if len(r.row) > 4 {
+			e.Size = parseInt(r.row[4])
+		}
+		if len(r.row) > 5 {
+			e.Notes = fmt.Sprintf("%v", r.row[5])
+		}
+		result = append(result, e)
+	}
+
+	return result
 }
 
 func parseDateToISO(s string) string {
@@ -515,8 +640,10 @@ func parseDateToISO(s string) string {
 		return s
 	}
 	if t, err := time.Parse("2 Jan", s); err == nil {
-		year := time.Now().Year()
-		if t.Month() > time.Now().Month()+1 {
+		now := time.Now()
+		year := now.Year()
+		parsed := time.Date(year, t.Month(), t.Day(), 0, 0, 0, 0, now.Location())
+		if parsed.After(now.Add(24 * time.Hour)) {
 			year--
 		}
 		return fmt.Sprintf("%d-%02d-%02d", year, int(t.Month()), t.Day())
@@ -596,7 +723,6 @@ func handleApiLog(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Failed to read log: %v", err), http.StatusInternalServerError)
 			return
 		}
-		var result []LogEntry
 		start := 0
 		if len(rows) > 0 {
 			var id int
@@ -604,29 +730,7 @@ func handleApiLog(w http.ResponseWriter, r *http.Request) {
 				start = 1
 			}
 		}
-		for _, row := range rows[start:] {
-			if len(row) < 3 {
-				continue
-			}
-			e := LogEntry{
-				ID:    parseInt(row[0]),
-				Date:  parseDateToISO(fmt.Sprintf("%v", row[1])),
-				Drink: fmt.Sprintf("%v", row[2]),
-			}
-			if len(row) > 3 {
-				e.Amount = parseFloat(row[3])
-			}
-			if len(row) > 4 {
-				e.Size = parseInt(row[4])
-			}
-			if len(row) > 5 {
-				e.Notes = fmt.Sprintf("%v", row[5])
-			}
-			result = append(result, e)
-		}
-		if result == nil {
-			result = []LogEntry{}
-		}
+		result := parseRowsToLogEntries(rows, start)
 		json.NewEncoder(w).Encode(result)
 
 	case http.MethodPost:
@@ -665,7 +769,7 @@ func handleApiLog(w http.ResponseWriter, r *http.Request) {
 		}
 		addToCatalogIfNew(req.Drink)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(LogEntry{ID: nextID, Date: req.Date, Drink: req.Drink, Amount: req.Amount, Size: req.Size, Notes: req.Notes})
+		json.NewEncoder(w).Encode(LogEntry{ID: fmt.Sprintf("%d", nextID), Date: req.Date, Drink: req.Drink, Amount: req.Amount, Size: req.Size, Notes: req.Notes})
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -673,8 +777,8 @@ func handleApiLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleApiLogItem(w http.ResponseWriter, r *http.Request) {
-	id := parseInt(r.PathValue("id"))
-	if id == 0 {
+	idStr := strings.TrimSpace(r.PathValue("id"))
+	if idStr == "" {
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
@@ -699,7 +803,7 @@ func handleApiLogItem(w http.ResponseWriter, r *http.Request) {
 		}
 		rowIndex := -1
 		for i, row := range rows {
-			if parseInt(row[0]) == id {
+			if len(row) > 0 && strings.TrimSpace(fmt.Sprintf("%v", row[0])) == idStr {
 				rowIndex = i
 				break
 			}
@@ -715,7 +819,7 @@ func handleApiLogItem(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		rangeName := fmt.Sprintf("Booze log!A%d:F%d", rowIndex+1, rowIndex+1)
-		if err := sheets.UpdateRange(rangeName, []interface{}{id, dateStr, req.Drink, req.Amount, req.Size, req.Notes}); err != nil {
+		if err := sheets.UpdateRange(rangeName, []interface{}{idStr, dateStr, req.Drink, req.Amount, req.Size, req.Notes}); err != nil {
 			http.Error(w, "Failed to update log", http.StatusInternalServerError)
 			return
 		}
@@ -729,7 +833,7 @@ func handleApiLogItem(w http.ResponseWriter, r *http.Request) {
 		}
 		rowIndex := -1
 		for i, row := range rows {
-			if parseInt(row[0]) == id {
+			if len(row) > 0 && strings.TrimSpace(fmt.Sprintf("%v", row[0])) == idStr {
 				rowIndex = i
 				break
 			}
