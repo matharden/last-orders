@@ -67,6 +67,7 @@ func main() {
 	// API routes
 	mux.HandleFunc("/api/data", authMiddlewareFunc(handleApiData))
 	mux.HandleFunc("/api/drinks", authMiddlewareFunc(handleApiDrinks))
+	mux.HandleFunc("/api/catalog/{id}", authMiddlewareFunc(handleApiCatalogItem))
 	mux.HandleFunc("/api/catalog", authMiddlewareFunc(handleApiCatalog))
 	mux.HandleFunc("/api/log/{id}", authMiddlewareFunc(handleApiLogItem))
 	mux.HandleFunc("/api/log", authMiddlewareFunc(handleApiLog))
@@ -716,6 +717,53 @@ func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+func handleApiCatalogItem(w http.ResponseWriter, r *http.Request) {
+	id := parseInt(r.PathValue("id"))
+	if id == 0 {
+		http.Error(w, "Invalid id", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Brewery string  `json:"brewery"`
+		Drink   string  `json:"drink"`
+		ABV     float64 `json:"abv"`
+		Rating  int     `json:"rating"`
+		Style   string  `json:"style"`
+		Image   string  `json:"image"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	rows, err := sheets.ReadRange("Booze!A:G")
+	if err != nil {
+		http.Error(w, "Failed to read catalog", http.StatusInternalServerError)
+		return
+	}
+	rowIndex := -1
+	for i, row := range rows {
+		if len(row) > 0 && parseInt(row[0]) == id {
+			rowIndex = i
+			break
+		}
+	}
+	if rowIndex == -1 {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	rangeName := fmt.Sprintf("Booze!A%d:G%d", rowIndex+1, rowIndex+1)
+	if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, req.Style, req.Image}); err != nil {
+		http.Error(w, "Failed to update catalog", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Style: req.Style, Image: req.Image})
 }
 
 func handleApiLog(w http.ResponseWriter, r *http.Request) {

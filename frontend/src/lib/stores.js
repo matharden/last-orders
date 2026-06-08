@@ -64,6 +64,19 @@ export const breweriesData = derived([log, catalog], ([$l, $c]) => topBreweries(
 export const drinksData    = derived(log, ($l) => topDrinks($l));
 
 // ---- API helpers ----
+export async function updateCatalogEntry(id, entry) {
+  const res = await fetch(`/api/catalog/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry),
+  });
+  if (res.ok) {
+    const updated = await res.json().catch(() => null);
+    if (updated) catalog.update(c => c.map(d => d.id === id ? updated : d));
+  }
+  return res.ok;
+}
+
 export async function fetchCatalog() {
   const res = await fetch('/api/catalog');
   if (res.ok) catalog.set((await res.json()) || []);

@@ -1,8 +1,10 @@
 <script>
   import { catalog, sheet, theme } from '../lib/stores.js';
   import { labelColor } from '../lib/units.js';
+  import DrinkEditSheet from '../lib/DrinkEditSheet.svelte';
 
   let query = '';
+  let editingDrink = null;
 
   $: filtered = $catalog.filter(c => {
     if (!query) return true;
@@ -12,7 +14,10 @@
         || (c.style || '').toLowerCase().includes(q);
   });
 
-  function quickLog(drink) {
+  function openEdit(drink) { editingDrink = drink; }
+
+  function quickLog(drink, e) {
+    e.stopPropagation();
     sheet.update(s => ({ ...s, open: true, drink: drink.drink, abv: drink.abv, size: 568, amount: 1 }));
   }
 
@@ -34,12 +39,17 @@
 
   <div class="card">
     {#each filtered as drink, i}
-      <button class="beer-row" on:click={() => quickLog(drink)}>
-        <div class="label-art" style="background:{labelColor(drink.drink, $theme)}">
+      <div class="beer-row" role="button" tabindex="0"
+           on:click={() => openEdit(drink)}
+           on:keydown={e => e.key === 'Enter' && openEdit(drink)}>
+        <button class="label-art" style="background:{labelColor(drink.drink, $theme)}"
+                title="Quick-log {drink.drink}"
+                on:click={e => quickLog(drink, e)}>
           <div class="label-strap">
             <span class="label-name mono">{drink.drink.toUpperCase()}</span>
           </div>
-        </div>
+          <span class="log-hint mono">+ log</span>
+        </button>
         <div class="mid">
           <span class="brewery mono">{drink.brewery.toUpperCase()}</span>
           <span class="drink-name newsreader">{drink.drink}</span>
@@ -52,7 +62,7 @@
             <span class="unrated mono">· · ·</span>
           {/if}
         </div>
-      </button>
+      </div>
       {#if i < filtered.length - 1}
         <div class="divider"></div>
       {/if}
@@ -61,6 +71,8 @@
     {/each}
   </div>
 </div>
+
+<DrinkEditSheet drink={editingDrink} on:close={() => editingDrink = null} />
 
 <style>
 .screen { padding: 20px 20px 100px; }
@@ -110,8 +122,6 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  background: none;
-  border: none;
   cursor: pointer;
   text-align: left;
   transition: background .12s;
@@ -128,6 +138,24 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.label-art:hover .log-hint { opacity: 1; }
+.log-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  opacity: 0;
+  transition: opacity .15s;
 }
 .label-strap {
   position: absolute;
