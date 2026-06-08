@@ -12,7 +12,7 @@
   </div>
   <div class="mid">
     <span class="drink newsreader">{entry.drink}</span>
-    <span class="meta mono">{fmtDate(entry.date)} · {SIZE_LABELS[entry.size] ?? entry.size+'ml'} · {entry.abv ?? '?'}%</span>
+    <span class="meta mono">{entry.amount} &times; {SIZE_LABELS[entry.size] ?? entry.size+'ml'} · {entry.abv ?? '?'}%</span>
   </div>
   <div class="right">
     <span class="units-val newsreader">{entry.units.toFixed(1)}</span>
