@@ -80,7 +80,7 @@ func main() {
 }
 
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
-	url := googleOauthConfig.AuthCodeURL(oauthStateString)
+	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.SetAuthURLParam("prompt", "select_account"))
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
