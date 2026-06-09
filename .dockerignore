@@ -2,7 +2,10 @@ Dockerfile
 .dockerignore
 .git
 .gitignore
-node_modules
+**/node_modules
+**/dist
 *.swp
 *.exe
 *.test
+.env
+boozer-466511-a5a833df59f0.json
