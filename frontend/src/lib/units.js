@@ -1,4 +1,4 @@
-export const SIZE_LABELS = { 100: 'Measure', 330: 'Bottle', 500: 'Can', 568: 'Pint' };
+export const SIZE_LABELS = { 100: 'Shot', 330: 'Small', 400: 'Medium', 500: 'Large', 568: 'Pint' };
 
 const ABV_OVERRIDES = {
   'Side Pocket': 4.4, 'Ale': 4.5, 'Peroni Capri': 4.2, 'Camden Ale': 4.0,

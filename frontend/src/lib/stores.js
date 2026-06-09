@@ -24,7 +24,7 @@ export const sheet = writable({
   id: null,       // null = create, number = edit
   drink: '',
   abv: null,
-  size: 500,
+  size: 330,
   amount: 1,
   notes: '',
   date: new Date().toISOString().slice(0, 10),

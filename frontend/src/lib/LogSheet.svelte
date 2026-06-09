@@ -2,7 +2,7 @@
   import { sheet, catalog, addLogEntry, updateLogEntry, deleteLogEntry } from './stores.js';
   import { unitsFor, SIZE_LABELS } from './units.js';
 
-  const SIZES   = [100, 330, 500, 568];
+  const SIZES   = [100, 330, 400, 500, 568];
   const AMOUNTS = [1, 1.5, 2, 3];
 
   let suggestions = [];
@@ -27,8 +27,9 @@
     suggestions = [];
   }
 
-  const resetSheet = () =>
-    sheet.set({ open: false, id: null, drink: '', abv: null, size: 500, amount: 1, notes: '', date: new Date().toISOString().slice(0, 10) });
+  const resetSheet = () => {
+    sheet.set({ open: false, id: null, drink: '', abv: null, size: 330, amount: 1, notes: '', date: new Date().toISOString().slice(0, 10) });
+  };
 
   async function save() {
     if (!$sheet.drink) return;
