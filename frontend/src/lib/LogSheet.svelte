@@ -128,9 +128,17 @@
           <button
             class="chip" class:selected={$sheet.size === sz}
             on:click={() => sheet.update(s => ({ ...s, size: sz }))}
-          >{SIZE_LABELS[sz]} {sz}ml</button>
+          >{SIZE_LABELS[sz]}</button>
         {/each}
       </div>
+      <input
+        id="size"
+        class="field-input size-input"
+        type="number"
+        min="1"
+        placeholder="Enter ml…"
+        bind:value={$sheet.size}
+      />
     </div>
 
     <div class="field-group">
@@ -246,6 +254,7 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   outline: none;
 }
 .field-input:focus { border-color: var(--amber); }
+.size-input { margin-top: 8px; }
 
 .suggestions {
   position: absolute;
