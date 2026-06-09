@@ -93,6 +93,11 @@
     </div>
 
     <div class="field-group">
+      <label class="field-label mono">Date</label>
+      <input class="field-input" type="date" bind:value={$sheet.date} />
+    </div>
+
+    <div class="field-group">
       <label class="field-label mono">What are you having?</label>
       <div class="autocomplete-wrap">
         <input
