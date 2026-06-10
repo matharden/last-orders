@@ -241,7 +241,7 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   border-radius: 11px;
   padding: 11px 13px;
   font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 15px;
+  font-size: 1rem;
   color: var(--ink);
   outline: none;
 }
