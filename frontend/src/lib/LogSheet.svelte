@@ -78,7 +78,6 @@
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="scrim" on:click={close}></div>
   <div class="sheet" role="dialog" aria-modal="true">
-    <div class="handle"></div>
     <div class="sheet-header">
       <div>
         <h2 class="newsreader">{$sheet.id ? 'Edit entry' : 'Pour one in'}</h2>
@@ -200,14 +199,6 @@
   animation: slideUp .3s cubic-bezier(.3,.9,.3,1) forwards;
 }
 @keyframes slideUp { from { transform: translateX(-50%) translateY(102%); } to { transform: translateX(-50%) translateY(0); } }
-
-.handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--card-edge);
-  margin: 0 auto 16px;
-}
 
 .sheet-header {
   display: flex;
