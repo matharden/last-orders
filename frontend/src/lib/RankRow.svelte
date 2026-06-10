@@ -11,7 +11,7 @@
   <div class="track">
     <div class="fill" style="width:{Math.round((count/max)*100)}%"></div>
   </div>
-  <span class="count mono">{count}</span>
+  <span class="count mono">{Math.ceil(count)}</span>
 </div>
 
 <style>

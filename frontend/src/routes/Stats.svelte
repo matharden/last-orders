@@ -20,14 +20,14 @@
   </div>
 
   <p class="eyebrow section-eye">UNITS BY WEEK</p>
-  <div class="card mb">
+  <div class="card mb scroll">
     <div class="bar-chart">
       {#each $weeklyData as w}
         {@const h = Math.max(4, Math.round((w.units / maxWeekUnits) * 150))}
         <div class="bar-col">
           <span class="bar-val newsreader">{w.units.toFixed(1)}</span>
           <div class="bar" style="height:{h}px"></div>
-          <span class="bar-lbl mono">{fmtDate(w.label, {day:'numeric',month:'short'})}</span>
+          <span class="bar-lbl mono">{fmtDate(w.label, {day:'numeric'})}</span>
         </div>
       {:else}
         <p class="empty mono">No data yet.</p>
@@ -68,6 +68,9 @@
   padding: 16px;
   box-shadow: var(--card-shadow);
 }
+.scroll {
+  overflow-x: auto;
+}
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -107,7 +110,7 @@
 }
 .bar-lbl {
   position: absolute;
-  bottom: 0;
+  bottom: -20px;
   left: 0;
   right: 0;
   font-size: 9px;
@@ -117,6 +120,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rank-card { padding: 4px 16px; }
+.rank-card {
+  overflow: hidden;
+  padding: 4px 16px;
+}
 .empty { font-size: 13px; color: var(--ink-3); padding: 12px 0; }
 </style>
