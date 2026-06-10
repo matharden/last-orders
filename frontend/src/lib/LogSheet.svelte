@@ -93,11 +93,6 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">Date</label>
-      <input class="field-input" type="date" bind:value={$sheet.date} />
-    </div>
-
-    <div class="field-group">
       <label class="field-label mono">What are you having?</label>
       <div class="autocomplete-wrap">
         <input
@@ -119,6 +114,11 @@
           </ul>
         {/if}
       </div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label mono">Date</label>
+      <input class="field-input" type="date" bind:value={$sheet.date} />
     </div>
 
     <div class="field-group">
@@ -163,7 +163,6 @@
       <input
         class="field-input"
         type="text"
-        placeholder="e.g. very hoppy"
         bind:value={$sheet.notes}
       />
     </div>
@@ -236,6 +235,7 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
 .autocomplete-wrap { position: relative; }
 .field-input {
   width: 100%;
+  height: 42px;
   background: var(--paper);
   border: 1px solid var(--card-edge);
   border-radius: 11px;
