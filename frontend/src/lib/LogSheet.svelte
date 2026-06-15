@@ -93,9 +93,10 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">What are you having?</label>
+      <label class="field-label mono" for="drink">What are you having?</label>
       <div class="autocomplete-wrap">
         <input
+          id="drink"
           class="field-input"
           type="text"
           placeholder="Drink name or brewery…"
@@ -117,12 +118,12 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">Date</label>
-      <input class="field-input" type="date" bind:value={$sheet.date} />
+      <label class="field-label mono" for="date">Date</label>
+      <input id="date" class="field-input" type="date" bind:value={$sheet.date} />
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">Serving</label>
+      <label class="field-label mono" for="size">Serving</label>
       <div class="chips">
         {#each SIZES as sz}
           <button
@@ -142,7 +143,7 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">How many?</label>
+      <label class="field-label mono" for="amount">How many?</label>
       <div class="chips">
         {#each AMOUNTS as a}
           <button
@@ -167,8 +168,9 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">Notes (optional)</label>
+      <label class="field-label mono" for="notes">Notes (optional)</label>
       <input
+        id="notes"
         class="field-input"
         type="text"
         bind:value={$sheet.notes}
