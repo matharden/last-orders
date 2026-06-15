@@ -66,7 +66,17 @@
 
     <div class="field-group">
       <label class="field-label mono">ABV %</label>
-      <input class="field-input" type="number" step="0.1" min="0" max="100" placeholder="4.3" bind:value={abv} />
+      <input
+        class="field-input"
+        type="number"
+        step="0.1"
+        min="0"
+        max="100"
+        placeholder="4.3"
+        inputmode="decimal"
+        pattern="[0-9\.]*"
+        bind:value={abv}
+      />
     </div>
 
     <div class="field-group">

@@ -136,7 +136,11 @@
         id="size"
         class="field-input size-input"
         type="number"
+        inputmode="numeric"
+        pattern="[0-9]*"
         min="1"
+        max="2000"
+        step="1"
         placeholder="Enter ml…"
         bind:value={$sheet.size}
       />
@@ -155,7 +159,11 @@
           id="amount"
           class="field-input amount-input"
           type="number"
-          min="1"
+          min="0"
+          max="100"
+          step="1"
+          pattern="[0-9\.]*"
+          inputmode="decimal"
           placeholder="Enter amount…"
           bind:value={$sheet.amount}
         />
