@@ -256,7 +256,14 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   outline: none;
 }
 .field-input:focus { border-color: var(--amber); }
+.field-input[type="date"]::-webkit-datetime-edit {
+  display: block;
+  padding: 0;
+}
 .size-input { margin-top: 8px; }
+.amount-input {
+  flex: 1;
+}
 
 .suggestions {
   position: absolute;
