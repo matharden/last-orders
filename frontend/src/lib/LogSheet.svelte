@@ -150,6 +150,14 @@
             on:click={() => sheet.update(s => ({ ...s, amount: a }))}
           >{a}</button>
         {/each}
+        <input
+          id="amount"
+          class="field-input amount-input"
+          type="number"
+          min="1"
+          placeholder="Enter amount…"
+          bind:value={$sheet.amount}
+        />
       </div>
     </div>
 
