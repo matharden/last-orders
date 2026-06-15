@@ -101,7 +101,7 @@
   border-radius: 12px;
   padding: 11px 12px 11px 38px;
   font-family: 'Hanken Grotesk', sans-serif;
-  font-size: 15px;
+  font-size: 1rem;
   color: var(--ink);
   outline: none;
   box-shadow: var(--card-shadow);
