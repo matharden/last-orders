@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { activeTab, theme, refreshAll, loading } from './lib/stores.js';
+  import { activeTab, theme, refreshAll, loading, sheet } from './lib/stores.js';
   import BottomNav from './lib/BottomNav.svelte';
   import LogSheet from './lib/LogSheet.svelte';
   import Home from './routes/Home.svelte';
@@ -20,6 +20,10 @@
     }
     await refreshAll();
   });
+
+  $: if (typeof document !== 'undefined') {
+    document.body.classList.toggle('no-scroll', $sheet.open);
+  }
 </script>
 
 <div class="glow"></div>
