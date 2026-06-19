@@ -8,6 +8,8 @@
   import Stats from './routes/Stats.svelte';
   import Catalog from './routes/Catalog.svelte';
 
+  let showLoginScreen = false;
+
   function toggleTheme() {
     theme.update(t => t === 'light' ? 'dark' : 'light');
   }
@@ -15,7 +17,8 @@
   onMount(async () => {
     const res = await fetch('/api/catalog');
     if (res.status === 401) {
-      window.location.href = '/login';
+      showLoginScreen = true;
+      loading.set(false);
       return;
     }
     await refreshAll();
@@ -40,12 +43,54 @@
       </svg>
     {/if}
   </button>
-  <button class="logout-btn mono" on:click={() => window.location.href = '/logout'}>logout</button>
+  {#if !showLoginScreen}
+    <button class="logout-btn mono" on:click={() => window.location.href = '/logout'}>logout</button>
+  {/if}
 </div>
 
 {#if $loading}
   <div class="loader">
     <span class="mono">loading…</span>
+  </div>
+{:else if showLoginScreen}
+  <div class="welcome-screen fade">
+    <div class="brand-hero">
+      <div class="decorative-glass">
+        <!-- SVG drawing of a stylized vintage coupe cocktail/beer glass -->
+        <svg viewBox="0 0 100 100" class="glass-art">
+          <!-- Stand/Base -->
+          <path d="M 35 90 L 65 90" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>
+          <!-- Stem -->
+          <path d="M 50 65 L 50 90" stroke="var(--amber)" stroke-width="2"/>
+          <!-- Bowl -->
+          <path d="M 25 35 Q 25 65 50 65 Q 75 65 75 35 Z" fill="none" stroke="var(--ink)" stroke-width="2"/>
+          <!-- Liquid reflection/gradient line -->
+          <path d="M 29 45 Q 50 50 71 45" stroke="var(--gold)" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <path d="M 33 55 Q 50 58 67 55" stroke="var(--amber)" stroke-width="2.5" fill="none" opacity="0.8" stroke-linecap="round"/>
+          <!-- Decorative bubbles -->
+          <circle cx="48" cy="40" r="1.5" fill="var(--gold)"/>
+          <circle cx="53" cy="43" r="1" fill="var(--gold)"/>
+          <circle cx="44" cy="48" r="1.2" fill="var(--gold)"/>
+          <circle cx="56" cy="47" r="1.5" fill="var(--gold)"/>
+        </svg>
+      </div>
+      <span class="eyebrow welcome-eyebrow">THE TASTING JOURNAL</span>
+      <h1 class="newsreader welcome-title">Last orders</h1>
+      <p class="welcome-desc">
+        A personal log for your pours, measures, and tasting notes.
+        Track weekly units and keep a detailed catalog of your collection.
+      </p>
+    </div>
+
+    <div class="action-section">
+      <a href="/login" class="login-btn newsreader">
+        Sign in with Google
+        <svg viewBox="0 0 24 24" class="arrow-icon">
+          <path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </a>
+      <span class="mono note">Authorized access only</span>
+    </div>
   </div>
 {:else if $activeTab === 'home'}
   <Home />
@@ -57,8 +102,10 @@
   <Catalog />
 {/if}
 
-<BottomNav />
-<LogSheet />
+{#if !showLoginScreen}
+  <BottomNav />
+  <LogSheet />
+{/if}
 
 <style>
 .glow {
@@ -121,5 +168,124 @@
   color: var(--ink-3);
   font-size: 13px;
   letter-spacing: .14em;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  padding: 60px 24px 80px;
+  text-align: center;
+}
+
+.brand-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.decorative-glass {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  box-shadow: var(--card-shadow);
+}
+
+.glass-art {
+  width: 70px;
+  height: 70px;
+}
+
+.welcome-eyebrow {
+  margin-bottom: 12px;
+  letter-spacing: .35em;
+  font-size: 11px;
+}
+
+.welcome-title {
+  font-size: 40px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 16px;
+  line-height: 1.1;
+}
+
+.welcome-desc {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-2);
+  max-width: 280px;
+}
+
+.action-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 260px;
+  padding: 16px 24px;
+  background: linear-gradient(135deg, var(--gold), var(--amber));
+  color: var(--stout);
+  text-decoration: none;
+  font-size: 17px;
+  font-weight: 500;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px -6px rgba(176,100,15,.4);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -6px rgba(176,100,15,.6);
+}
+
+.login-btn:active {
+  transform: translateY(0);
+}
+
+.arrow-icon {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease;
+}
+
+.login-btn:hover .arrow-icon {
+  transform: translateX(4px);
+}
+
+.note {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.fade {
+  animation: settle .4s ease forwards;
+}
+
+@keyframes settle {
+  from { opacity: .85; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

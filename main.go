@@ -142,7 +142,7 @@ func handleLogout(w http.ResponseWriter, r *http.Request) {
 		MaxAge: -1,
 	}
 	http.SetCookie(w, cookie)
-	http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
 func authMiddleware(next http.Handler) http.Handler {
@@ -160,8 +160,8 @@ func authMiddleware(next http.Handler) http.Handler {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			// Otherwise redirect to login
-			http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+			// Otherwise, let non-API requests (static files) fall through
+			next.ServeHTTP(w, r)
 			return
 		}
 		next.ServeHTTP(w, r)
