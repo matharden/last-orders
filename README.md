@@ -1,4 +1,4 @@
-# Boozer Web App
+# Last Orders Web App
 
 A lightweight Go web application that uses built-in Google OAuth 2.0 authentication to secure the app and integrates with the Google Sheets API v4 to read and write data.
 

@@ -21,7 +21,7 @@
   <header>
     <div class="brand">
       <span class="eyebrow">THE TASTING JOURNAL</span>
-      <h1 class="newsreader">Boozer</h1>
+      <h1 class="newsreader">Last orders</h1>
     </div>
     <span class="date-label mono">{today}</span>
   </header>
