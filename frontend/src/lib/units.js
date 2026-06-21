@@ -45,22 +45,22 @@ export function fmtWeekday(iso) {
 }
 
 function weekMonday(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = (d.getDay() + 6) % 7;
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const day = (d.getUTCDay() + 6) % 7;
   const mon = new Date(d);
-  mon.setDate(d.getDate() - day);
+  mon.setUTCDate(d.getUTCDate() - day);
   return mon.toISOString().slice(0, 10);
 }
 
 export function thisWeekEntries(log) {
   const mon = weekMonday(new Date().toISOString().slice(0, 10));
-  const sun = (() => { const d = new Date(mon + 'T00:00:00'); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
+  const sun = (() => { const d = new Date(mon + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 6); return d.toISOString().slice(0, 10); })();
   return log.filter(e => e.date >= mon && e.date <= sun);
 }
 
 export function weekRange() {
   const mon = weekMonday(new Date().toISOString().slice(0, 10));
-  const sun = (() => { const d = new Date(mon + 'T00:00:00'); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10); })();
+  const sun = (() => { const d = new Date(mon + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 6); return d.toISOString().slice(0, 10); })();
   return { mon, sun };
 }
 
