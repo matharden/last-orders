@@ -66,37 +66,25 @@ When running Docker Compose, the application is accessible on two ports:
 
 ## ☁️ Deploying to Cloud Run
 
-When deploying to Google Cloud Run, **you do not need to upload or use the `GOOGLE_APPLICATION_CREDENTIALS` JSON file.** 
-
-Instead, the best practice is to assign your Service Account directly to the Cloud Run service. The Go application will automatically detect that it's running on GCP and use the assigned Service Account's permissions!
+The easiest way to deploy to Google Cloud Run is by using the provided deployment script, which automates sourcing environment variables from your `.env` file, extracting your service account credentials, and setting up the production URL redirects.
 
 ### Step 1: Assign Roles to your Service Account
-Ensure the Service Account you created earlier has permissions to access the Google Sheet. 
+Ensure the Service Account you created earlier has permissions to access the Google Sheet and GCS bucket.
 
-### Step 2: First Deploy (to get your URL)
-Because you need the Cloud Run URL to configure Google OAuth, but you need Google OAuth configured to use the app, you have to do a "dummy" deploy first to generate the URL.
+### Step 2: Run the Deployment Script
 
-```bash
-# Deploy with placeholder OAuth URL
-gcloud run deploy boozer \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --service-account="<YOUR_SERVICE_ACCOUNT_EMAIL>" \
-  --set-env-vars="SPREADSHEET_ID=...,SHEET_READ_RANGE=Sheet1!A2:B,SHEET_WRITE_RANGE=Sheet1!A:B,OAUTH_REDIRECT_URL=placeholder,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
-```
-
-After this command finishes, it will print your actual Cloud Run URL (e.g., `https://boozer-xyz-uc.a.run.app`).
-
-### Step 3: Update OAuth Credentials & Re-deploy
-1. Take your new Cloud Run URL, add `/callback` to the end, and put it in the **Authorized redirect URIs** in your GCP OAuth Console.
-2. Re-run the deploy command, but this time use the real URL:
+Simply run the executable script from the root directory:
 
 ```bash
-gcloud run deploy boozer \
-  --source . \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --service-account="<YOUR_SERVICE_ACCOUNT_EMAIL>" \
-  --set-env-vars="SPREADSHEET_ID=...,SHEET_READ_RANGE=Sheet1!A2:B,SHEET_WRITE_RANGE=Sheet1!A:B,OAUTH_REDIRECT_URL=https://<YOUR_ACTUAL_URL>/callback,GOOGLE_CLIENT_ID=...,GOOGLE_CLIENT_SECRET=...,AUTHORIZED_EMAIL=..."
+./deploy.sh
 ```
+
+#### First Deployment (OAuth Setup)
+Because Google OAuth requires an authorized redirect URI pointing to your live URL (which you only get *after* deployment), the first run of the script will:
+1. Perform a preliminary deployment using placeholders.
+2. Print your new live Cloud Run service URL.
+3. Instruct you to add `<YOUR_SERVICE_URL>/callback` to the **Authorized redirect URIs** in your Google Cloud Console (APIs & Services > Credentials).
+4. Prompt you to run `./deploy.sh` one more time to automatically update the environment variables on Cloud Run with the live URL.
+
+#### Subsequent Deployments
+For any future changes, just run `./deploy.sh`. The script will automatically detect the existing service, retrieve its URL, adjust the callback redirect URL to production, and redeploy.
