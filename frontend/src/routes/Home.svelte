@@ -21,6 +21,18 @@
   });
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  $: daysSinceLastEntry = (() => {
+    if (!$enrichedLog || $enrichedLog.length === 0) return '—';
+    const dates = $enrichedLog.map(e => e.date).filter(Boolean);
+    if (dates.length === 0) return '—';
+    const lastDateStr = dates.reduce((max, d) => d > max ? d : max, dates[0]);
+    const lastDate = new Date(lastDateStr + 'T00:00:00');
+    const todayLocal = new Date();
+    todayLocal.setHours(0, 0, 0, 0);
+    const diffTime = todayLocal.getTime() - lastDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 ? diffDays : 0;
+  })();
 </script>
 
 <div class="screen fade">
@@ -51,7 +63,7 @@
   <div class="stat-grid">
     <StatTile value={week.drinks.toFixed(1)} label="Drinks" />
     <StatTile value={avgUnits.toFixed(1)} label="Avg units" />
-    <StatTile value={week.dryDays} label="Dry days" />
+    <StatTile value={daysSinceLastEntry} label="Dry days" />
   </div>
 
   <p class="eyebrow section-eye">LAST POURED</p>
