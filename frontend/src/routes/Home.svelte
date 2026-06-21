@@ -7,12 +7,18 @@
   const TARGET_UNITS = 14;
 
   $: week = $thisWeek;
-  $: pipsCount = Math.min(7, Math.round((week.units / TARGET_UNITS) * 7));
   $: recent = $enrichedLog.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
   $: avgUnits = week.drinks > 0 ? (week.units / week.days || 0) : 0;
+  $: weekDaysWithEntries = new Set(week.entries.map(e => e.date));
 
   const { mon, sun } = weekRange();
   const rangeLabel = `${new Date(mon+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(sun+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(mon + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 </script>
@@ -36,8 +42,8 @@
     </div>
     <p class="hero-sub">{week.drinks} drinks across {week.days} evening{week.days !== 1 ? 's' : ''}…</p>
     <div class="pips">
-      {#each Array(7) as _, i}
-        <div class="pip" class:filled={i < pipsCount}></div>
+      {#each weekDates as date}
+        <div class="pip" class:filled={weekDaysWithEntries.has(date)}></div>
       {/each}
     </div>
   </div>
