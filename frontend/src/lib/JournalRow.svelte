@@ -8,8 +8,10 @@
 </script>
 
 <div class="row" class:last class:clickable on:click>
-  <div class="mat" style="background:{labelColor(entry.drink, $theme)}">
-    <span class="initials newsreader">{drinkInitials(entry.drink)}</span>
+  <div class="mat" style="background:{entry.image ? `url(${entry.image}) center/cover no-repeat` : labelColor(entry.drink, $theme)}">
+    {#if !entry.image}
+      <span class="initials newsreader">{drinkInitials(entry.drink)}</span>
+    {/if}
   </div>
   <div class="mid">
     <span class="drink newsreader">{entry.drink}</span>

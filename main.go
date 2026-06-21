@@ -17,6 +17,7 @@ import (
 	"golang.org/x/oauth2/google"
 	"github.com/joho/godotenv"
 	"boozer/sheets"
+	"boozer/gcs"
 )
 
 var (
@@ -53,6 +54,12 @@ func main() {
 		log.Printf("Warning: Failed to initialize sheets client: %v", err)
 	}
 
+	// Initialize gcs client
+	err = gcs.Init()
+	if err != nil {
+		log.Printf("Warning: Failed to initialize gcs client: %v", err)
+	}
+
 	mux := http.NewServeMux()
 
 	// Serve static files
@@ -71,6 +78,7 @@ func main() {
 	mux.HandleFunc("/api/catalog", authMiddlewareFunc(handleApiCatalog))
 	mux.HandleFunc("/api/log/{id}", authMiddlewareFunc(handleApiLogItem))
 	mux.HandleFunc("/api/log", authMiddlewareFunc(handleApiLog))
+	mux.HandleFunc("/api/upload", authMiddlewareFunc(handleApiUpload))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -121,7 +129,7 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// Set a simple cookie for demonstration. In production, use signed JWT or gorilla/sessions
 	cookie := &http.Cookie{
 		Name:     "auth_session",
-		Value:    "authenticated",
+		Value:    userInfo.Email,
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   os.Getenv("ENV") == "production",
@@ -154,7 +162,7 @@ func authMiddleware(next http.Handler) http.Handler {
 		}
 
 		cookie, err := r.Cookie("auth_session")
-		if err != nil || cookie.Value != "authenticated" {
+		if err != nil || cookie.Value == "" {
 			// If not authenticated and asking for an API, return 401
 			if len(r.URL.Path) > 4 && r.URL.Path[:4] == "/api" {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -171,7 +179,7 @@ func authMiddleware(next http.Handler) http.Handler {
 func authMiddlewareFunc(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("auth_session")
-		if err != nil || cookie.Value != "authenticated" {
+		if err != nil || cookie.Value == "" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -702,7 +710,24 @@ func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
 			d.Rating = parseInt(row[4])
 		}
 		if len(row) > 5 {
-			d.Image = fmt.Sprintf("%v", row[5])
+			imgVal := strings.TrimSpace(fmt.Sprintf("%v", row[5]))
+			if imgVal != "" {
+				if strings.HasPrefix(imgVal, "http://") || strings.HasPrefix(imgVal, "https://") {
+					d.Image = imgVal
+				} else {
+					cookie, err := r.Cookie("auth_session")
+					if err == nil && cookie.Value != "" {
+						signedURL, err := gcs.SignURL(cookie.Value, imgVal)
+						if err == nil {
+							d.Image = signedURL
+						} else {
+							d.Image = imgVal
+						}
+					} else {
+						d.Image = imgVal
+					}
+				}
+			}
 		}
 		if len(row) > 6 {
 			d.Notes = fmt.Sprintf("%v", row[6])
@@ -758,12 +783,41 @@ func handleApiCatalogItem(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not found", http.StatusNotFound)
 		return
 	}
+
+	// Make sure we only store the raw filename if they uploaded a file.
+	// If the frontend sends a signed GCS URL or full URL, we should NOT overwrite the raw filename.
+	// To check this: if it contains "storage.googleapis.com" or "?GoogleAccessId=" or starts with http,
+	// and we already have a raw filename in the sheet, do not overwrite it.
+	// But let's check if the frontend is sending back the raw filename (which it should!).
+	// Just to be safe, if req.Image starts with http/https, let's see if we can extract the filename or keep the old one.
+	// Actually, if we configure the frontend to always store the raw filename, req.Image will be the raw filename.
+	// Let's add a check: if it is a signed/full URL, and we can find the filename in it, extract it.
+	// Otherwise, keep as is.
+	imageToSave := req.Image
+	if strings.Contains(imageToSave, "storage.googleapis.com") {
+		// Try to extract filename (the last path segment before query params)
+		parts := strings.Split(imageToSave, "?")
+		pathParts := strings.Split(parts[0], "/")
+		imageToSave = pathParts[len(pathParts)-1]
+	}
+
 	rangeName := fmt.Sprintf("Booze!A%d:G%d", rowIndex+1, rowIndex+1)
-	if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, req.Image, req.Notes}); err != nil {
+	if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, imageToSave, req.Notes}); err != nil {
 		http.Error(w, "Failed to update catalog", http.StatusInternalServerError)
 		return
 	}
-	json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Image: req.Image, Notes: req.Notes})
+
+	responseImage := imageToSave
+	if imageToSave != "" && !strings.HasPrefix(imageToSave, "http://") && !strings.HasPrefix(imageToSave, "https://") {
+		cookie, err := r.Cookie("auth_session")
+		if err == nil && cookie.Value != "" {
+			if signedURL, err := gcs.SignURL(cookie.Value, imageToSave); err == nil {
+				responseImage = signedURL
+			}
+		}
+	}
+
+	json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Image: responseImage, Notes: req.Notes})
 }
 
 func handleApiLog(w http.ResponseWriter, r *http.Request) {
@@ -930,4 +984,54 @@ func addToCatalogIfNew(drinkName string) {
 		}
 	}
 	_ = sheets.WriteRange("Booze!A:E", []interface{}{maxID + 1, "", drinkName, "", ""})
+}
+
+func handleApiUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	cookie, err := r.Cookie("auth_session")
+	if err != nil || cookie.Value == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	email := cookie.Value
+
+	// limit uploads to 5MB
+	err = r.ParseMultipartForm(5 << 20)
+	if err != nil {
+		http.Error(w, "Payload too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		http.Error(w, "Missing file parameter 'image'", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	filename := header.Filename
+	if lastSlash := strings.LastIndex(filename, "/"); lastSlash != -1 {
+		filename = filename[lastSlash+1:]
+	}
+	if lastSlash := strings.LastIndex(filename, "\\"); lastSlash != -1 {
+		filename = filename[lastSlash+1:]
+	}
+	if filename == "" {
+		filename = "image.png"
+	}
+
+	err = gcs.Upload(r.Context(), email, filename, file)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to upload image: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"filename": filename,
+	})
 }

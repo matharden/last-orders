@@ -42,12 +42,14 @@
       <div class="beer-row" role="button" tabindex="0"
            on:click={() => openEdit(drink)}
            on:keydown={e => e.key === 'Enter' && openEdit(drink)}>
-        <button class="label-art" style="background:{labelColor(drink.drink, $theme)}"
+        <button class="label-art" style="background:{drink.image ? `url(${drink.image}) center/cover no-repeat` : labelColor(drink.drink, $theme)}"
                 title="Quick-log {drink.drink}"
                 on:click={e => quickLog(drink, e)}>
-          <div class="label-strap">
-            <span class="label-name mono">{drink.drink.toUpperCase()}</span>
-          </div>
+          {#if !drink.image}
+            <div class="label-strap">
+              <span class="label-name mono">{drink.drink.toUpperCase()}</span>
+            </div>
+          {/if}
           <span class="log-hint mono">+ log</span>
         </button>
         <div class="mid">

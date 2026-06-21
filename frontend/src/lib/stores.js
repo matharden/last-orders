@@ -35,9 +35,17 @@ export const catalog = writable([]);
 export const log = writable([]);
 export const loading = writable(true);
 
-// ---- Enriched log (adds abv + units to each entry) ----
+// ---- Enriched log (adds abv + units + image to each entry) ----
 export const enrichedLog = derived([log, catalog], ([$log, $catalog]) =>
-  $log.map(e => ({ ...e, abv: resolveAbv(e.drink, $catalog), units: unitsFor(e, $catalog) }))
+  $log.map(e => {
+    const match = $catalog.find(c => c.drink.toLowerCase() === e.drink.toLowerCase());
+    return {
+      ...e,
+      abv: resolveAbv(e.drink, $catalog),
+      units: unitsFor(e, $catalog),
+      image: match ? match.image : ''
+    };
+  })
 );
 
 // ---- This week ----

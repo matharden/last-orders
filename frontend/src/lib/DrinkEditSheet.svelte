@@ -14,6 +14,9 @@
   let notes   = '';
   let saving  = false;
 
+  let uploadFile = null;
+  let previewUrl = '';
+
   $: if (drink) {
     brewery = drink.brewery || '';
     name    = drink.drink   || '';
@@ -21,19 +24,56 @@
     rating  = drink.rating  || 0;
     image   = drink.image   || '';
     notes   = drink.notes   || '';
+    uploadFile = null;
+    previewUrl = '';
   }
 
   function close() { dispatch('close'); }
 
+  function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadFile = file;
+    previewUrl = URL.createObjectURL(file);
+  }
+
+  function removeImage() {
+    image = '';
+    uploadFile = null;
+    previewUrl = '';
+  }
+
   async function save() {
     if (!name) return;
     saving = true;
+
+    let finalImage = image;
+    if (uploadFile) {
+      const formData = new FormData();
+      formData.append('image', uploadFile);
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          // Store only the raw filename returned by GCS upload
+          finalImage = data.filename;
+        } else {
+          console.error('Failed to upload image');
+        }
+      } catch (err) {
+        console.error('Upload error', err);
+      }
+    }
+
     await updateCatalogEntry(drink.id, {
       brewery,
       drink: name,
       abv:   parseFloat(abv) || 0,
       rating,
-      image,
+      image: finalImage,
       notes,
     });
     saving = false;
@@ -92,8 +132,25 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label mono">Image URL</label>
-      <input class="field-input" type="text" placeholder="Booze_Images/Neck Oil.Image.jpg" bind:value={image} />
+      <label class="field-label mono">Image</label>
+      <div class="image-upload-wrapper">
+        {#if previewUrl || image}
+          <div class="preview-container">
+            <img src={previewUrl || image} alt="Preview" class="image-preview" />
+            <button type="button" class="remove-image-btn" on:click={removeImage}>✕ Remove</button>
+          </div>
+        {:else}
+          <label class="upload-zone">
+            <input type="file" accept="image/*" on:change={handleFileChange} style="display:none;" />
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <span class="upload-text">Upload photo</span>
+          </label>
+        {/if}
+      </div>
     </div>
 
     <div class="field-group">
@@ -170,7 +227,6 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
 }
 .field-input:focus { border-color: var(--amber); }
 
-
 .stars {
   display: flex;
   align-items: center;
@@ -192,6 +248,66 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   font-size: 11px;
   color: var(--ink-3);
   margin-left: 6px;
+}
+
+.image-upload-wrapper {
+  margin-top: 4px;
+}
+.preview-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--paper);
+  border: 1px solid var(--card-edge);
+  padding: 8px;
+  border-radius: 11px;
+}
+.image-preview {
+  width: 54px;
+  height: 54px;
+  border-radius: 7px;
+  object-fit: cover;
+  background: var(--paper-2);
+}
+.remove-image-btn {
+  background: none;
+  border: 1px solid var(--card-edge);
+  color: var(--ink-3);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.remove-image-btn:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.upload-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px dashed var(--card-edge);
+  padding: 16px;
+  border-radius: 11px;
+  cursor: pointer;
+  background: var(--paper);
+  transition: border-color .15s;
+}
+.upload-zone:hover {
+  border-color: var(--amber);
+}
+.upload-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--ink-3);
+}
+.upload-text {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 500;
 }
 
 .save-btn {
