@@ -22,7 +22,7 @@
   <p class="eyebrow section-eye">UNITS BY WEEK</p>
   <div class="card mb scroll">
     <div class="bar-chart">
-      {#each $weeklyData as w}
+      {#each $weeklyData.reverse() as w}
         {@const h = Math.max(4, Math.round((w.units / maxWeekUnits) * 150))}
         <div class="bar-col">
           <span class="bar-val newsreader">{w.units.toFixed(1)}</span>
