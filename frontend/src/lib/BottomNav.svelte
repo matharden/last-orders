@@ -23,7 +23,9 @@
 
   <button class="tab" class:active={$activeTab === 'history'} on:click={() => activeTab.set('history')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+      <path d="M12 15a5 5 0 0 0 5-5V4H7v6a5 5 0 0 0 5 5Z"/>
+      <path d="M12 15v6"/>
+      <path d="M9 21h6"/>
     </svg>
     <span class="mono">Journal</span>
   </button>
@@ -43,7 +45,12 @@
 
   <button class="tab" class:active={$activeTab === 'catalog'} on:click={() => activeTab.set('catalog')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      <ellipse cx="12" cy="5" rx="6" ry="1.5" />
+      <path d="M6 5c-2 3-2 11 0 14" />
+      <path d="M18 5c2 3 2 11 0 14" />
+      <path d="M6 19c1 1.5 3.5 2 6 2s5-.5 6-2" />
+      <path d="M4.5 10c2.5 1 5.5 1.5 7.5 1.5s5-.5 7.5-1.5" />
+      <path d="M4.5 14c2.5 1 5.5 1.5 7.5 1.5s5-.5 7.5-1.5" />
     </svg>
     <span class="mono">Cellar</span>
   </button>
