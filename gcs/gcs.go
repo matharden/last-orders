@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strings"
 	"time"
 
+	"cloud.google.com/go/compute/metadata"
 	"cloud.google.com/go/storage"
 	"google.golang.org/api/option"
 )
@@ -54,6 +56,17 @@ func Init() error {
 	client, err = storage.NewClient(ctx, opts...)
 	if err != nil {
 		return fmt.Errorf("unable to initialize storage client: %v", err)
+	}
+
+	// Try to get service account email from metadata server if not loaded from file
+	if saEmail == "" && metadata.OnGCE() {
+		email, err := metadata.Email("default")
+		if err == nil {
+			saEmail = email
+			log.Printf("Loaded GCS Service Account email from GCE metadata: %s", saEmail)
+		} else {
+			log.Printf("Failed to get default service account email from metadata: %v", err)
+		}
 	}
 
 	return nil
@@ -114,12 +127,18 @@ func SignURL(email, filename string) (string, error) {
 
 	// Fall back to signing with the client itself if credentials aren't loaded (like Cloud Run default SA)
 	// Cloud Run default credentials can sign using signing options
-	url, err := client.Bucket(bucketName).SignedURL(objectKey, &storage.SignedURLOptions{
+	opts := &storage.SignedURLOptions{
 		Method:  "GET",
 		Expires: time.Now().Add(15 * time.Minute),
 		Scheme:  storage.SigningSchemeV4,
-	})
+	}
+	if saEmail != "" {
+		opts.GoogleAccessID = saEmail
+	}
+
+	url, err := client.Bucket(bucketName).SignedURL(objectKey, opts)
 	if err != nil {
+		log.Printf("GCS URL signing failed (using direct link fallback): %v", err)
 		// If both fail, return a fallback direct link (which will only work if bucket is public)
 		return fmt.Sprintf("https://storage.googleapis.com/%s/%s", bucketName, objectKey), nil
 	}

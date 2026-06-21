@@ -68,8 +68,11 @@ When running Docker Compose, the application is accessible on two ports:
 
 The easiest way to deploy to Google Cloud Run is by using the provided deployment script, which automates sourcing environment variables from your `.env` file, extracting your service account credentials, and setting up the production URL redirects.
 
-### Step 1: Assign Roles to your Service Account
-Ensure the Service Account you created earlier has permissions to access the Google Sheet and GCS bucket.
+### Step 1: Assign Roles and Permissions to your Service Account
+1. **Google Sheets & Cloud Storage Permissions:** Ensure the Service Account you created earlier has permissions to edit the Google Sheet and read/write to the GCS bucket.
+2. **IAM URL Signing Permissions (Critical):** Since the backend signs temporary GCS URLs on demand, you must grant the Service Account permission to sign data as itself:
+   * **Enable the API:** Go to the [IAM Service Account Credentials API Page](https://console.cloud.google.com/apis/library/iamcredentials.googleapis.com) and click **Enable**.
+   * **Assign Role:** Go to the [IAM Page](https://console.cloud.google.com/iam-admin/iam), click **Grant Access**, add your service account email as a principal, and assign the **Service Account Token Creator** (`roles/iam.serviceAccountTokenCreator`) role. This is required for the IAM `signBlob` API to succeed on Cloud Run.
 
 ### Step 2: Run the Deployment Script
 
