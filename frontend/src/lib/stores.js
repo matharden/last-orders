@@ -136,3 +136,9 @@ export async function deleteLogEntry(id) {
   if (res.ok) log.update(l => l.filter(e => e.id !== id));
   return res.ok;
 }
+
+export async function deleteCatalogEntry(id) {
+  const res = await fetch(`/api/catalog/${id}`, { method: 'DELETE' });
+  if (res.ok) catalog.update(c => c.filter(d => d.id !== id));
+  return res.ok;
+}

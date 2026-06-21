@@ -1,6 +1,6 @@
 <script>
   import { createEventDispatcher } from 'svelte';
-  import { updateCatalogEntry } from './stores.js';
+  import { updateCatalogEntry, deleteCatalogEntry, log } from './stores.js';
 
   export let drink = null; // Drink object to edit; null = closed
 
@@ -79,6 +79,21 @@
     saving = false;
     close();
   }
+
+  $: isUsed = drink && $log.some(e => e.drink.toLowerCase() === drink.drink.toLowerCase());
+
+  async function handleDelete() {
+    if (isUsed) {
+      alert(`Cannot delete "${drink.drink}" because it is currently referenced in your history.`);
+      return;
+    }
+    if (confirm(`Are you sure you want to delete "${drink.drink}" from the cellar?`)) {
+      const ok = await deleteCatalogEntry(drink.id);
+      if (ok) {
+        close();
+      }
+    }
+  }
 </script>
 
 {#if drink}
@@ -92,6 +107,19 @@
         <h2 class="newsreader">Edit beer</h2>
         <p class="hint">Update the catalogue entry.</p>
       </div>
+      {#if drink}
+        <button
+          class="delete-btn"
+          class:disabled={isUsed}
+          on:click={handleDelete}
+          aria-label="Delete entry"
+          title={isUsed ? "Cannot delete: this beer is used in your log history" : "Delete entry"}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+          </svg>
+        </button>
+      {/if}
     </div>
 
     <div class="field-group">
@@ -200,7 +228,27 @@
   margin: 0 auto 16px;
 }
 
-.sheet-header { margin-bottom: 20px; }
+.sheet-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.delete-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  padding: 4px;
+  border-radius: 8px;
+  transition: color .15s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.delete-btn:hover { color: #c0392b; }
+.delete-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+.delete-btn.disabled:hover { color: var(--ink-3); }
+.delete-btn svg { width: 20px; height: 20px; display: block; }
 h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
 .hint { font-size: 14px; color: var(--ink-2); }
 

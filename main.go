@@ -751,73 +751,116 @@ func handleApiCatalogItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	var req struct {
-		Brewery string  `json:"brewery"`
-		Drink   string  `json:"drink"`
-		ABV     float64 `json:"abv"`
-		Rating  int     `json:"rating"`
-		Image   string  `json:"image"`
-		Notes   string  `json:"notes"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-	rows, err := sheets.ReadRange("Booze!A:G")
-	if err != nil {
-		http.Error(w, "Failed to read catalog", http.StatusInternalServerError)
-		return
-	}
-	rowIndex := -1
-	for i, row := range rows {
-		if len(row) > 0 && parseInt(row[0]) == id {
-			rowIndex = i
-			break
+	if r.Method == http.MethodPut {
+		var req struct {
+			Brewery string  `json:"brewery"`
+			Drink   string  `json:"drink"`
+			ABV     float64 `json:"abv"`
+			Rating  int     `json:"rating"`
+			Image   string  `json:"image"`
+			Notes   string  `json:"notes"`
 		}
-	}
-	if rowIndex == -1 {
-		http.Error(w, "Not found", http.StatusNotFound)
-		return
-	}
-
-	// Make sure we only store the raw filename if they uploaded a file.
-	// If the frontend sends a signed GCS URL or full URL, we should NOT overwrite the raw filename.
-	// To check this: if it contains "storage.googleapis.com" or "?GoogleAccessId=" or starts with http,
-	// and we already have a raw filename in the sheet, do not overwrite it.
-	// But let's check if the frontend is sending back the raw filename (which it should!).
-	// Just to be safe, if req.Image starts with http/https, let's see if we can extract the filename or keep the old one.
-	// Actually, if we configure the frontend to always store the raw filename, req.Image will be the raw filename.
-	// Let's add a check: if it is a signed/full URL, and we can find the filename in it, extract it.
-	// Otherwise, keep as is.
-	imageToSave := req.Image
-	if strings.Contains(imageToSave, "storage.googleapis.com") {
-		// Try to extract filename (the last path segment before query params)
-		parts := strings.Split(imageToSave, "?")
-		pathParts := strings.Split(parts[0], "/")
-		imageToSave = pathParts[len(pathParts)-1]
-	}
-
-	rangeName := fmt.Sprintf("Booze!A%d:G%d", rowIndex+1, rowIndex+1)
-	if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, imageToSave, req.Notes}); err != nil {
-		http.Error(w, "Failed to update catalog", http.StatusInternalServerError)
-		return
-	}
-
-	responseImage := imageToSave
-	if imageToSave != "" && !strings.HasPrefix(imageToSave, "http://") && !strings.HasPrefix(imageToSave, "https://") {
-		cookie, err := r.Cookie("auth_session")
-		if err == nil && cookie.Value != "" {
-			if signedURL, err := gcs.SignURL(cookie.Value, imageToSave); err == nil {
-				responseImage = signedURL
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		rows, err := sheets.ReadRange("Booze!A:G")
+		if err != nil {
+			http.Error(w, "Failed to read catalog", http.StatusInternalServerError)
+			return
+		}
+		rowIndex := -1
+		for i, row := range rows {
+			if len(row) > 0 && parseInt(row[0]) == id {
+				rowIndex = i
+				break
 			}
 		}
-	}
+		if rowIndex == -1 {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
 
-	json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Image: responseImage, Notes: req.Notes})
+		// Make sure we only store the raw filename if they uploaded a file.
+		// If the frontend sends a signed GCS URL or full URL, we should NOT overwrite the raw filename.
+		// To check this: if it contains "storage.googleapis.com" or "?GoogleAccessId=" or starts with http,
+		// and we already have a raw filename in the sheet, do not overwrite it.
+		// But let's check if the frontend is sending back the raw filename (which it should!).
+		// Just to be safe, if req.Image starts with http/https, let's see if we can extract the filename or keep the old one.
+		// Actually, if we configure the frontend to always store the raw filename, req.Image will be the raw filename.
+		// Let's add a check: if it is a signed/full URL, and we can find the filename in it, extract it.
+		// Otherwise, keep as is.
+		imageToSave := req.Image
+		if strings.Contains(imageToSave, "storage.googleapis.com") {
+			// Try to extract filename (the last path segment before query params)
+			parts := strings.Split(imageToSave, "?")
+			pathParts := strings.Split(parts[0], "/")
+			imageToSave = pathParts[len(pathParts)-1]
+		}
+
+		rangeName := fmt.Sprintf("Booze!A%d:G%d", rowIndex+1, rowIndex+1)
+		if err := sheets.UpdateRange(rangeName, []interface{}{id, req.Brewery, req.Drink, req.ABV, req.Rating, imageToSave, req.Notes}); err != nil {
+			http.Error(w, "Failed to update catalog", http.StatusInternalServerError)
+			return
+		}
+
+		responseImage := imageToSave
+		if imageToSave != "" && !strings.HasPrefix(imageToSave, "http://") && !strings.HasPrefix(imageToSave, "https://") {
+			cookie, err := r.Cookie("auth_session")
+			if err == nil && cookie.Value != "" {
+				if signedURL, err := gcs.SignURL(cookie.Value, imageToSave); err == nil {
+					responseImage = signedURL
+				}
+			}
+		}
+
+		json.NewEncoder(w).Encode(Drink{ID: id, Brewery: req.Brewery, Drink: req.Drink, ABV: req.ABV, Rating: req.Rating, Image: responseImage, Notes: req.Notes})
+	} else if r.Method == http.MethodDelete {
+		rows, err := sheets.ReadRange("Booze!A:G")
+		if err != nil {
+			http.Error(w, "Failed to read catalog", http.StatusInternalServerError)
+			return
+		}
+		rowIndex := -1
+		var drinkName string
+		for i, row := range rows {
+			if len(row) > 0 && parseInt(row[0]) == id {
+				rowIndex = i
+				if len(row) > 2 {
+					drinkName = strings.TrimSpace(fmt.Sprintf("%v", row[2]))
+				}
+				break
+			}
+		}
+		if rowIndex == -1 {
+			http.Error(w, "Not found", http.StatusNotFound)
+			return
+		}
+
+		if drinkName != "" {
+			// Check if used in history (Booze log sheet)
+			logRows, err := sheets.ReadData()
+			if err == nil {
+				for _, row := range logRows {
+					if len(row) > 2 {
+						logDrink := strings.TrimSpace(fmt.Sprintf("%v", row[2]))
+						if strings.EqualFold(logDrink, drinkName) {
+							http.Error(w, "Cannot delete catalog entry because it is used in history log", http.StatusConflict)
+							return
+						}
+					}
+				}
+			}
+		}
+
+		if err := sheets.DeleteRow("Booze", rowIndex); err != nil {
+			http.Error(w, "Failed to delete catalog entry", http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	} else {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func handleApiLog(w http.ResponseWriter, r *http.Request) {
