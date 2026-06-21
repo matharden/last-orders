@@ -4,7 +4,7 @@ A lightweight Go web application that uses built-in Google OAuth 2.0 authenticat
 
 ## 🏗️ Architecture Summary
 
-*   **Backend (`main.go`, `sheets/sheets.go`):** Built with Go's `net/http` package. It handles OAuth login, Google Sheets synchronization, and exposes API endpoints (`/api/*`).
+*   **Backend (`main.go`, `sheets/sheets.go`, `gcs/gcs.go`):** Built with Go's `net/http` package. It handles OAuth login, Google Sheets synchronization, image uploading/signing via Google Cloud Storage (GCS), and exposes API endpoints (`/api/*`).
 *   **Frontend (`frontend/`):** A modern UI built with Svelte and Vite. In production, this compiles into static assets served by Go from `/app/static` on port `8080`.
 *   **Deployment (`Dockerfile`):** A multi-stage Dockerfile that builds the Svelte assets first, then compiles the Go server and embeds the static Svelte distribution into a lean container.
 
@@ -12,7 +12,7 @@ A lightweight Go web application that uses built-in Google OAuth 2.0 authenticat
 
 Before you can run the application, you need to set up your Google Cloud project and gather some credentials. The application relies on a `.env` file to function securely.
 
-> **IMPORTANT:** You must create a **Service Account** to access the Google Sheet, and an **OAuth 2.0 Client** to handle user login.
+> **IMPORTANT:** You must create a **Service Account** to access the Google Sheet and GCS bucket, and an **OAuth 2.0 Client** to handle user login.
 
 ### Environment Variables Needed
 
@@ -21,11 +21,14 @@ Create a `.env` file in the root directory (where `main.go` is) with the followi
 ```bash
 # 1. Google Sheets Configuration
 SPREADSHEET_ID="your-google-sheet-id-here"
-SHEET_READ_RANGE="Sheet1!A2:B"
-SHEET_WRITE_RANGE="Sheet1!A:B"
+SHEET_READ_RANGE="Booze log!A:F"
+SHEET_WRITE_RANGE="Booze log!A:F"
 GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
 
-# 2. Authentication Configuration (OAuth 2.0)
+# 2. Google Cloud Storage Configuration
+GCS_BUCKET_NAME="your-gcs-bucket-name"
+
+# 3. Authentication Configuration (OAuth 2.0)
 GOOGLE_CLIENT_ID="your-oauth-client-id.apps.googleusercontent.com"
 GOOGLE_CLIENT_SECRET="your-oauth-client-secret"
 OAUTH_REDIRECT_URL="http://localhost:8080/callback"
