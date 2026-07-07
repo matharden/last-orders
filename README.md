@@ -91,3 +91,19 @@ Because Google OAuth requires an authorized redirect URI pointing to your live U
 
 #### Subsequent Deployments
 For any future changes, just run `./deploy.sh`. The script will automatically detect the existing service, retrieve its URL, adjust the callback redirect URL to production, and redeploy.
+
+## 📱 Native iOS App
+
+A native SwiftUI port of the app lives in `ios/` (`ios/LastOrders.xcodeproj`). It is a full client for the same backend — Home (weekly measure), Journal, Stats, and Cellar screens, plus the log/edit bottom sheets and catalog photo upload — with the same UK-units maths as the web frontend (`ios/LastOrders/Units.swift` mirrors `frontend/src/lib/units.js`; keep them in sync).
+
+*   **Backend:** Talks to the deployed Cloud Run service over the existing `/api/*` endpoints. No backend changes are required.
+*   **Auth:** Matches the server's session model — it sends `auth_session=<email>` as a cookie with every request. The server URL and email are configured in the app's Settings sheet (shown automatically on first launch).
+*   **Requirements:** Xcode 16+, iOS 17+.
+
+### Running on your iPhone
+1. Open `ios/LastOrders.xcodeproj` in Xcode.
+2. Select the *LastOrders* target → Signing & Capabilities → choose your personal team (a free Apple ID works).
+3. Plug in your iPhone (enable Developer Mode under Settings → Privacy & Security if prompted), select it as the run destination, and press Run.
+4. In the app's Settings sheet, confirm the server URL and enter the email your server's `AUTHORIZED_EMAIL` is set to.
+
+> Note: with a free (non-paid) Apple developer account, the app signature expires after 7 days — just press Run again to reinstall.
