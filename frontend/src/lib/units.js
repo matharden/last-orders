@@ -44,7 +44,7 @@ export function fmtWeekday(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase();
 }
 
-function weekMonday(dateStr) {
+export function weekMonday(dateStr) {
   const d = new Date(dateStr + 'T00:00:00Z');
   const day = (d.getUTCDay() + 6) % 7;
   const mon = new Date(d);
@@ -52,16 +52,17 @@ function weekMonday(dateStr) {
   return mon.toISOString().slice(0, 10);
 }
 
-export function thisWeekEntries(log) {
-  const mon = weekMonday(new Date().toISOString().slice(0, 10));
-  const sun = (() => { const d = new Date(mon + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 6); return d.toISOString().slice(0, 10); })();
+export function thisWeekEntries(log, offset = 0) {
+  const { mon, sun } = weekRange(offset);
   return log.filter(e => e.date >= mon && e.date <= sun);
 }
 
-export function weekRange() {
-  const mon = weekMonday(new Date().toISOString().slice(0, 10));
-  const sun = (() => { const d = new Date(mon + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 6); return d.toISOString().slice(0, 10); })();
-  return { mon, sun };
+export function weekRange(offset = 0) {
+  const d = new Date(weekMonday(new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + offset * 7);
+  const mon = d.toISOString().slice(0, 10);
+  d.setUTCDate(d.getUTCDate() + 6);
+  return { mon, sun: d.toISOString().slice(0, 10) };
 }
 
 export function weeklyBuckets(log, catalog) {

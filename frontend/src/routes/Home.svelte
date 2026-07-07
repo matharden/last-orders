@@ -1,24 +1,41 @@
 <script>
-  import { activeTab, thisWeek, enrichedLog, sheet } from '../lib/stores.js';
+  import { activeTab, enrichedLog, sheet } from '../lib/stores.js';
   import StatTile from '../lib/StatTile.svelte';
   import JournalRow from '../lib/JournalRow.svelte';
-  import { weekRange } from '../lib/units.js';
+  import { weekRange, weekMonday, thisWeekEntries, fmtDate } from '../lib/units.js';
 
   const TARGET_UNITS = 14;
 
-  $: week = $thisWeek;
+  let weekOffset = 0;
+
+  $: ({ mon, sun } = weekRange(weekOffset));
+  $: entries = thisWeekEntries($enrichedLog, weekOffset);
+  $: week = {
+    entries,
+    units:  entries.reduce((s, x) => s + x.units, 0),
+    drinks: entries.reduce((s, x) => s + x.amount, 0),
+    days:   new Set(entries.map(x => x.date)).size,
+  };
   $: recent = $enrichedLog.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
   $: avgUnits = week.drinks > 0 ? (week.units / week.days || 0) : 0;
   $: weekDaysWithEntries = new Set(week.entries.map(e => e.date));
 
-  const { mon, sun } = weekRange();
-  const rangeLabel = `${new Date(mon+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(sun+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
+  $: rangeLabel = `${new Date(mon+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(sun+'T00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`;
 
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
+  $: weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(mon + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + i);
     return d.toISOString().slice(0, 10);
   });
+
+  $: earliestWeek = $enrichedLog.length
+    ? weekMonday($enrichedLog.reduce((min, e) => e.date < min ? e.date : min, $enrichedLog[0].date))
+    : null;
+  $: canPrev = earliestWeek !== null && mon > earliestWeek;
+  $: canNext = weekOffset < 0;
+  $: measureLabel = weekOffset === 0 ? "THIS WEEK'S MEASURE"
+    : weekOffset === -1 ? "LAST WEEK'S MEASURE"
+    : `WEEK OF ${fmtDate(mon).toUpperCase()}`;
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   $: daysSinceLastEntry = (() => {
@@ -44,7 +61,13 @@
     <span class="date-label mono">{today}</span>
   </header>
 
-  <p class="eyebrow section-eye">THIS WEEK'S MEASURE</p>
+  <div class="measure-head">
+    <p class="eyebrow section-eye">{measureLabel}</p>
+    <div class="week-nav">
+      <button class="nav-btn mono" on:click={() => weekOffset -= 1} disabled={!canPrev} aria-label="Previous week">←</button>
+      <button class="nav-btn mono" on:click={() => weekOffset += 1} disabled={!canNext} aria-label="Next week">→</button>
+    </div>
+  </div>
 
   <div class="hero-card">
     <div class="deco-circle"></div>
@@ -97,6 +120,33 @@ header {
 .brand h1 { font-size: 24px; font-weight: 600; color: var(--ink); line-height: 1; }
 .date-label { font-size: 11px; color: var(--ink-3); padding-top: 6px; }
 .section-eye { margin-bottom: 10px; }
+
+.measure-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.measure-head .section-eye { margin-bottom: 10px; }
+.week-nav { display: flex; gap: 6px; margin-bottom: 10px; }
+.nav-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--amber);
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.nav-btn:disabled {
+  color: var(--ink-3);
+  opacity: .4;
+  cursor: default;
+}
 
 .hero-card {
   position: relative;

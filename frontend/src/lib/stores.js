@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { resolveAbv, unitsFor, weeklyBuckets, topBreweries, topDrinks, thisWeekEntries } from './units.js';
+import { resolveAbv, unitsFor, weeklyBuckets, topBreweries, topDrinks } from './units.js';
 
 // ---- Theme ----
 function initTheme() {
@@ -47,15 +47,6 @@ export const enrichedLog = derived([log, catalog], ([$log, $catalog]) =>
     };
   })
 );
-
-// ---- This week ----
-export const thisWeek = derived(enrichedLog, ($e) => {
-  const entries = thisWeekEntries($e);
-  const units  = entries.reduce((s, x) => s + x.units, 0);
-  const drinks = entries.reduce((s, x) => s + x.amount, 0);
-  const days   = new Set(entries.map(x => x.date)).size;
-  return { entries, units, drinks, days, dryDays: 7 - days };
-});
 
 // ---- All-time ----
 export const allTime = derived(enrichedLog, ($e) => ({
