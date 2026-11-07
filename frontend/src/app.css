@@ -4,6 +4,8 @@ html, body {
   height: 100%;
   font-family: 'Hanken Grotesk', sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Stop iOS double-tap zoom on fast repeated taps; pinch-zoom still works. */
+  touch-action: manipulation;
 }
 
 :root[data-theme="light"] {
