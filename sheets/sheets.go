@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
@@ -58,22 +59,25 @@ func ReadRange(rangeName string) ([][]interface{}, error) {
 	return resp.Values, nil
 }
 
-// WriteRange appends a row of data to a specific range in the spreadsheet
-func WriteRange(rangeName string, values []interface{}) error {
+// WriteRange appends a row of data to a specific range in the spreadsheet.
+// It returns the A1 range the row was written to (e.g. "'Booze log'!A377:F377").
+func WriteRange(rangeName string, values []interface{}) (string, error) {
 	if svc == nil {
-		return fmt.Errorf("sheets service not initialized")
+		return "", fmt.Errorf("sheets service not initialized")
 	}
 
 	valueRange := &sheets.ValueRange{
 		Values: [][]interface{}{values},
 	}
 
-	_, err := svc.Spreadsheets.Values.Append(spreadsheetId, rangeName, valueRange).ValueInputOption("USER_ENTERED").Do()
+	resp, err := svc.Spreadsheets.Values.Append(spreadsheetId, rangeName, valueRange).ValueInputOption("USER_ENTERED").Do()
 	if err != nil {
-		return fmt.Errorf("unable to append data to range %s: %v", rangeName, err)
+		return "", fmt.Errorf("unable to append data to range %s: %v", rangeName, err)
 	}
-
-	return nil
+	if resp.Updates == nil {
+		return "", nil
+	}
+	return resp.Updates.UpdatedRange, nil
 }
 
 // ReadData fetches data from the default spreadsheet range
@@ -82,7 +86,7 @@ func ReadData() ([][]interface{}, error) {
 }
 
 // WriteData appends a row of data to the default spreadsheet range
-func WriteData(values []interface{}) error {
+func WriteData(values []interface{}) (string, error) {
 	return WriteRange(writeRange, values)
 }
 
@@ -110,24 +114,9 @@ func DeleteRow(sheetName string, rowIndex int) error {
 		return fmt.Errorf("sheets service not initialized")
 	}
 
-	// Fetch spreadsheet metadata to find the SheetId of the sheet with sheetName
-	spreadsheet, err := svc.Spreadsheets.Get(spreadsheetId).Do()
+	sheetId, err := sheetID(sheetName)
 	if err != nil {
-		return fmt.Errorf("unable to retrieve spreadsheet metadata: %v", err)
-	}
-
-	var sheetId int64
-	found := false
-	for _, sheet := range spreadsheet.Sheets {
-		if sheet.Properties.Title == sheetName {
-			sheetId = sheet.Properties.SheetId
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		return fmt.Errorf("sheet %s not found", sheetName)
+		return err
 	}
 
 	// Create BatchUpdate request to delete the dimension
@@ -152,4 +141,32 @@ func DeleteRow(sheetName string, rowIndex int) error {
 	}
 
 	return nil
+}
+
+var (
+	sheetIDsMu sync.Mutex
+	sheetIDs   map[string]int64
+)
+
+// sheetID looks up a tab's numeric ID, fetching only the tab titles/IDs once
+// and caching them (they don't change when rows are added or removed).
+func sheetID(sheetName string) (int64, error) {
+	sheetIDsMu.Lock()
+	defer sheetIDsMu.Unlock()
+	if id, ok := sheetIDs[sheetName]; ok {
+		return id, nil
+	}
+	spreadsheet, err := svc.Spreadsheets.Get(spreadsheetId).Fields("sheets.properties(sheetId,title)").Do()
+	if err != nil {
+		return 0, fmt.Errorf("unable to retrieve spreadsheet metadata: %v", err)
+	}
+	sheetIDs = map[string]int64{}
+	for _, sheet := range spreadsheet.Sheets {
+		sheetIDs[sheet.Properties.Title] = sheet.Properties.SheetId
+	}
+	id, ok := sheetIDs[sheetName]
+	if !ok {
+		return 0, fmt.Errorf("sheet %s not found", sheetName)
+	}
+	return id, nil
 }

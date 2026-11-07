@@ -93,6 +93,9 @@ ENV_VARS_LIST=(
 if [ -n "$SESSION_SECRET" ]; then
   ENV_VARS_LIST+=("SESSION_SECRET=$SESSION_SECRET")
 fi
+if [ -n "$SHEET_CACHE_TTL" ]; then
+  ENV_VARS_LIST+=("SHEET_CACHE_TTL=$SHEET_CACHE_TTL")
+fi
 
 # Join the array elements with commas
 ENV_VARS=$(IFS=,; echo "${ENV_VARS_LIST[*]}")

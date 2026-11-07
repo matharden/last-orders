@@ -37,6 +37,10 @@ FRONTEND_URL="http://localhost:5173"
 # Optional: key for signing sign-in sessions (e.g. `openssl rand -hex 32`).
 # If unset it is derived from GOOGLE_CLIENT_SECRET. Changing it signs everyone out.
 SESSION_SECRET=""
+# Optional: how long the server keeps its in-memory copy of the Sheet before
+# re-reading it (Go duration, default 2m). Edits made directly in the Sheet
+# show up in the app within this time.
+SHEET_CACHE_TTL="2m"
 ```
 
 ### Setup Steps
