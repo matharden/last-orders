@@ -6,6 +6,7 @@
   const AMOUNTS = [1, 1.5, 2, 3];
 
   let suggestions = [];
+  let saving = false;
   let toastVisible = false;
   let toastTimer;
 
@@ -31,8 +32,18 @@
     sheet.set({ open: false, id: null, drink: '', abv: null, size: 330, amount: 1, notes: '', date: new Date().toISOString().slice(0, 10) });
   };
 
+  // Enter in the drink box picks the top suggestion when the list is open,
+  // so a half-typed name isn't logged as a new drink.
+  function onDrinkKeydown(e) {
+    if (e.key === 'Enter' && suggestions.length) {
+      e.preventDefault();
+      selectSuggestion(suggestions[0]);
+    }
+  }
+
   async function save() {
-    if (!$sheet.drink) return;
+    if (!$sheet.drink || saving) return;
+    saving = true;
     const payload = {
       date:   $sheet.date || new Date().toISOString().slice(0, 10),
       drink:  $sheet.drink,
@@ -40,9 +51,14 @@
       size:   $sheet.size,
       notes:  $sheet.notes,
     };
-    const ok = $sheet.id
-      ? await updateLogEntry($sheet.id, payload)
-      : await addLogEntry(payload);
+    let ok = false;
+    try {
+      ok = $sheet.id
+        ? await updateLogEntry($sheet.id, payload)
+        : await addLogEntry(payload);
+    } finally {
+      saving = false;
+    }
     if (ok) {
       resetSheet();
       suggestions = [];
@@ -77,14 +93,14 @@
 {#if $sheet.open}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="scrim" on:click={close}></div>
-  <div class="sheet" role="dialog" aria-modal="true">
+  <form class="sheet" role="dialog" aria-modal="true" on:submit|preventDefault={save}>
     <div class="sheet-header">
       <div>
         <h2 class="newsreader">{$sheet.id ? 'Edit entry' : 'Pour one in'}</h2>
         <p class="hint">{$sheet.id ? 'Update or delete this log entry.' : 'Log a drink to your journal.'}</p>
       </div>
       {#if $sheet.id}
-        <button class="delete-btn" on:click={handleDelete} aria-label="Delete entry">
+        <button type="button" class="delete-btn" on:click={handleDelete} aria-label="Delete entry">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
           </svg>
@@ -102,6 +118,7 @@
           placeholder="Drink name or brewery…"
           value={$sheet.drink}
           on:input={onDrinkInput}
+          on:keydown={onDrinkKeydown}
         />
         {#if suggestions.length}
           <ul class="suggestions">
@@ -127,6 +144,7 @@
       <div class="chips">
         {#each SIZES as sz}
           <button
+            type="button"
             class="chip" class:selected={$sheet.size === sz}
             on:click={() => sheet.update(s => ({ ...s, size: sz }))}
           >{SIZE_LABELS[sz]}</button>
@@ -151,6 +169,7 @@
       <div class="chips">
         {#each AMOUNTS as a}
           <button
+            type="button"
             class="chip" class:selected={$sheet.amount === a}
             on:click={() => sheet.update(s => ({ ...s, amount: a }))}
           >{a}</button>
@@ -185,8 +204,10 @@
       />
     </div>
 
-    <button class="save-btn" on:click={save} disabled={!$sheet.drink}>Save</button>
-  </div>
+    <button type="submit" class="save-btn" disabled={!$sheet.drink || saving}>
+      {saving ? 'Saving…' : 'Save'}
+    </button>
+  </form>
 {/if}
 
 <style>

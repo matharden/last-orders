@@ -93,6 +93,7 @@ struct LogSheetView: View {
                 saveButton
             }
             .padding(20)
+            .onSubmit(onReturn)
         }
         .background(p.card)
         .presentationDetents([.large])
@@ -193,15 +194,35 @@ struct LogSheetView: View {
         .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
     }
 
+    private var canSave: Bool {
+        !draft.drink.trimmingCharacters(in: .whitespaces).isEmpty && !saving
+    }
+
+    /// Return key: pick the top suggestion if the list is open (so a half-typed
+    /// name isn't logged as a new drink), otherwise save.
+    private func onReturn() {
+        if let first = suggestions.first {
+            suppressSuggestions = true
+            draft.drink = first.drink
+            draft.abv = first.abv
+            suggestions = []
+        } else {
+            submit()
+        }
+    }
+
+    private func submit() {
+        guard canSave else { return }
+        saving = true
+        Task {
+            let ok = await state.saveLog(draft)
+            saving = false
+            if ok { dismiss() }
+        }
+    }
+
     private var saveButton: some View {
-        Button {
-            saving = true
-            Task {
-                let ok = await state.saveLog(draft)
-                saving = false
-                if ok { dismiss() }
-            }
-        } label: {
+        Button(action: submit) {
             Text(saving ? "Saving…" : (isEditing ? "Save changes" : "Log it"))
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
@@ -213,8 +234,8 @@ struct LogSheetView: View {
                 )
         }
         .buttonStyle(.plain)
-        .disabled(draft.drink.trimmingCharacters(in: .whitespaces).isEmpty || saving)
-        .opacity(draft.drink.trimmingCharacters(in: .whitespaces).isEmpty || saving ? 0.4 : 1)
+        .disabled(!canSave)
+        .opacity(canSave ? 1 : 0.4)
         .padding(.top, 8)
     }
 

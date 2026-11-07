@@ -66,6 +66,7 @@ struct DrinkEditView: View {
                 saveButton
             }
             .padding(20)
+            .onSubmit(submit)
         }
         .background(p.card)
         .presentationDetents([.large])
@@ -218,14 +219,21 @@ struct DrinkEditView: View {
         }
     }
 
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty && !saving
+    }
+
+    private func submit() {
+        guard canSave else { return }
+        saving = true
+        Task {
+            await save()
+            saving = false
+        }
+    }
+
     private var saveButton: some View {
-        Button {
-            saving = true
-            Task {
-                await save()
-                saving = false
-            }
-        } label: {
+        Button(action: submit) {
             Text(saving ? "Saving…" : "Save changes")
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(.white)
@@ -237,8 +245,8 @@ struct DrinkEditView: View {
                 )
         }
         .buttonStyle(.plain)
-        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || saving)
-        .opacity(name.trimmingCharacters(in: .whitespaces).isEmpty || saving ? 0.4 : 1)
+        .disabled(!canSave)
+        .opacity(canSave ? 1 : 0.4)
         .padding(.top, 8)
     }
 

@@ -44,7 +44,7 @@
   }
 
   async function save() {
-    if (!name) return;
+    if (!name || saving) return;
     saving = true;
 
     let finalImage = image;
@@ -99,7 +99,7 @@
 {#if drink}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="scrim" on:click={close}></div>
-  <div class="sheet" role="dialog" aria-modal="true">
+  <form class="sheet" role="dialog" aria-modal="true" on:submit|preventDefault={save}>
     <div class="handle"></div>
 
     <div class="sheet-header">
@@ -109,6 +109,7 @@
       </div>
       {#if drink}
         <button
+          type="button"
           class="delete-btn"
           class:disabled={isUsed}
           on:click={handleDelete}
@@ -151,7 +152,7 @@
       <label class="field-label mono">Rating</label>
       <div class="stars">
         {#each [1,2,3,4,5] as n}
-          <button class="star" class:filled={n <= rating} on:click={() => rating = rating === n ? 0 : n}>
+          <button type="button" class="star" class:filled={n <= rating} on:click={() => rating = rating === n ? 0 : n}>
             {n <= rating ? '★' : '☆'}
           </button>
         {/each}
@@ -186,10 +187,10 @@
       <input class="field-input" type="text" placeholder="e.g. Seasonal, limited edition…" bind:value={notes} />
     </div>
 
-    <button class="save-btn" on:click={save} disabled={!name || saving}>
+    <button type="submit" class="save-btn" disabled={!name || saving}>
       {saving ? 'Saving…' : 'Save changes'}
     </button>
-  </div>
+  </form>
 {/if}
 
 <style>
