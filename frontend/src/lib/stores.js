@@ -1,4 +1,4 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, get } from 'svelte/store';
 import { resolveAbv, unitsFor, weeklyBuckets, topBreweries, topDrinks } from './units.js';
 
 // ---- Theme ----
@@ -62,18 +62,47 @@ export const weeklyData = derived([log, catalog], ([$l, $c]) => weeklyBuckets($l
 export const breweriesData = derived([log, catalog], ([$l, $c]) => topBreweries($l, $c));
 export const drinksData    = derived(log, ($l) => topDrinks($l));
 
+// ---- Save errors ----
+// Saves update the screen immediately and go to the server in the background.
+// If the server rejects one, the change is rolled back and this message shown.
+export const saveError = writable('');
+
+function reportSaveError(what, err) {
+  console.error(what, err);
+  saveError.set(`Couldn't save ${what} — your change was undone. Please try again.`);
+}
+
+async function send(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => '')}`.trim());
+  return res;
+}
+
+const jsonOptions = (method, body) => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+});
+
 // ---- API helpers ----
 export async function updateCatalogEntry(id, entry) {
-  const res = await fetch(`/api/catalog/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(entry),
-  });
-  if (res.ok) {
-    const updated = await res.json().catch(() => null);
-    if (updated) catalog.update(c => c.map(d => d.id === id ? updated : d));
-  }
-  return res.ok;
+  let previous;
+  catalog.update(c => c.map(d => {
+    if (d.id !== id) return d;
+    previous = d;
+    // entry.image is a raw filename; the server replies with a signed URL for it.
+    // Until then keep showing the current photo (or none, if it was removed).
+    const image = entry.image === '' ? '' : d.image;
+    return { ...d, ...entry, image };
+  }));
+  send(`/api/catalog/${id}`, jsonOptions('PUT', entry))
+    .then(res => res.json().catch(() => null))
+    .then(updated => { if (updated) catalog.update(c => c.map(d => d.id === id ? updated : d)); })
+    .catch(err => {
+      if (previous) catalog.update(c => c.map(d => d.id === id ? previous : d));
+      reportSaveError('that drink', err);
+    });
+  return true;
 }
 
 export async function fetchCatalog() {
@@ -102,47 +131,78 @@ export async function refreshAll() {
 // so refresh the Cellar in the background if this drink isn't in it yet.
 function refreshCatalogIfNew(drinkName) {
   const name = (drinkName || '').trim().toLowerCase();
-  let known = false;
-  catalog.update(c => { known = c.some(d => d.drink.trim().toLowerCase() === name); return c; });
-  if (name && !known) fetchCatalog();
+  if (name && !get(catalog).some(d => d.drink.trim().toLowerCase() === name)) fetchCatalog();
+}
+
+// New entries get a temporary id until the server replies with the real one.
+// Edits/deletes of an entry that's still being created wait for that id.
+const pendingCreates = new Map(); // tempId -> Promise<realId | null>
+
+async function resolveId(id) {
+  return pendingCreates.has(id) ? pendingCreates.get(id) : id;
 }
 
 export async function addLogEntry(entry) {
-  const res = await fetch('/api/log', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(entry),
-  });
-  if (res.ok) {
-    // Optimistic: prepend
-    const created = await res.json().catch(() => null);
-    if (created) {
-      log.update(l => [created, ...l]);
-    } else {
-      await fetchLog();
-    }
-    refreshCatalogIfNew(entry.drink);
-  }
-  return res.ok;
+  const tempId = `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  log.update(l => [{ id: tempId, ...entry }, ...l]);
+
+  const created = send('/api/log', jsonOptions('POST', entry))
+    .then(res => res.json())
+    .then(saved => {
+      log.update(l => l.map(e => e.id === tempId ? { ...e, id: saved.id } : e));
+      refreshCatalogIfNew(entry.drink);
+      return saved.id;
+    })
+    .catch(err => {
+      log.update(l => l.filter(e => e.id !== tempId));
+      reportSaveError('that drink', err);
+      return null;
+    })
+    .finally(() => pendingCreates.delete(tempId));
+  pendingCreates.set(tempId, created);
+  return true;
 }
 
 export async function updateLogEntry(id, entry) {
-  const res = await fetch(`/api/log/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(entry),
-  });
-  if (res.ok) {
-    log.update(l => l.map(e => e.id === id ? { ...e, ...entry } : e));
-    refreshCatalogIfNew(entry.drink);
-  }
-  return res.ok;
+  let previous;
+  log.update(l => l.map(e => {
+    if (e.id !== id) return e;
+    previous = e;
+    return { ...e, ...entry };
+  }));
+  (async () => {
+    const realId = await resolveId(id);
+    if (realId == null) return; // the create failed and was already rolled back
+    try {
+      await send(`/api/log/${realId}`, jsonOptions('PUT', entry));
+      refreshCatalogIfNew(entry.drink);
+    } catch (err) {
+      if (previous) log.update(l => l.map(e => (e.id === id || e.id === realId) ? { ...previous, id: realId } : e));
+      reportSaveError('that change', err);
+    }
+  })();
+  return true;
 }
 
 export async function deleteLogEntry(id) {
-  const res = await fetch(`/api/log/${id}`, { method: 'DELETE' });
-  if (res.ok) log.update(l => l.filter(e => e.id !== id));
-  return res.ok;
+  let removed, index = -1;
+  log.update(l => {
+    index = l.findIndex(e => e.id === id);
+    if (index === -1) return l;
+    removed = l[index];
+    return l.filter(e => e.id !== id);
+  });
+  (async () => {
+    const realId = await resolveId(id);
+    if (realId == null) return;
+    try {
+      await send(`/api/log/${realId}`, { method: 'DELETE' });
+    } catch (err) {
+      if (removed) log.update(l => { const c = [...l]; c.splice(Math.min(index, c.length), 0, { ...removed, id: realId }); return c; });
+      reportSaveError('that delete', err);
+    }
+  })();
+  return true;
 }
 
 export async function deleteCatalogEntry(id) {

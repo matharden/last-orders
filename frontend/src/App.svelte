@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { activeTab, theme, refreshAll, loading, sheet } from './lib/stores.js';
+  import { activeTab, theme, refreshAll, loading, sheet, saveError } from './lib/stores.js';
   import BottomNav from './lib/BottomNav.svelte';
   import LogSheet from './lib/LogSheet.svelte';
   import Home from './routes/Home.svelte';
@@ -28,6 +28,13 @@
 </script>
 
 <div class="glow"></div>
+
+{#if $saveError}
+  <div class="save-error" role="alert">
+    <span>{$saveError}</span>
+    <button on:click={() => saveError.set('')} aria-label="Dismiss">×</button>
+  </div>
+{/if}
 
 <div class="top-bar">
   <button class="theme-btn" on:click={toggleTheme} aria-label="Toggle theme">
@@ -124,6 +131,35 @@
   position: sticky;
   top: 0;
   z-index: 10;
+}
+
+.save-error {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  color: var(--ink);
+  font-size: 13px;
+  z-index: 100;
+}
+.save-error span { flex: 1; }
+.save-error button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 18px;
+  line-height: 1;
 }
 
 .theme-btn {

@@ -153,8 +153,29 @@ final class AppState {
         }
     }
 
-    private func refreshQuietly() {
-        Task { await refresh() }
+    // MARK: - Saves (optimistic)
+    //
+    // Saves update the screen immediately and go to the server in the background.
+    // If the server rejects one, the change is rolled back and an error shown.
+    // New entries get a temporary id until the server replies; edits/deletes of
+    // an entry that's still being created wait for its real id.
+
+    private var pendingCreates: [String: Task<String?, Never>] = [:]
+
+    private func resolveID(_ id: String) async -> String? {
+        if let task = pendingCreates[id] { return await task.value }
+        return id
+    }
+
+    private func refreshCatalogIfNew(_ drinkName: String) {
+        let name = drinkName.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !name.isEmpty,
+              !catalog.contains(where: { $0.drink.trimmingCharacters(in: .whitespaces).lowercased() == name })
+        else { return }
+        guard let api else { return }
+        Task {
+            if let fresh = try? await api.fetchCatalog() { catalog = fresh }
+        }
     }
 
     @discardableResult
@@ -164,52 +185,92 @@ final class AppState {
             date: draft.date, drink: draft.drink, amount: draft.amount,
             size: draft.size, notes: draft.notes
         )
-        do {
-            if let entryID = draft.entryID {
-                try await api.updateLog(id: entryID, payload)
-                if let i = log.firstIndex(where: { $0.id == entryID }) {
-                    log[i] = LogEntry(id: entryID, date: draft.date, drink: draft.drink,
-                                      amount: draft.amount, size: draft.size, notes: draft.notes)
-                }
-            } else {
-                let created = try await api.addLog(payload)
-                log.insert(created, at: 0)
-            }
+        if let entryID = draft.entryID {
+            guard let i = log.firstIndex(where: { $0.id == entryID }) else { return false }
+            let previous = log[i]
+            log[i] = LogEntry(id: entryID, date: draft.date, drink: draft.drink,
+                              amount: draft.amount, size: draft.size, notes: draft.notes)
             showToast("Logged — cheers!")
-            refreshQuietly() // the server may have added a new drink to the catalog
-            return true
-        } catch {
-            errorMessage = friendly(error)
-            return false
+            Task {
+                guard let realID = await resolveID(entryID) else { return }
+                do {
+                    try await api.updateLog(id: realID, payload)
+                    refreshCatalogIfNew(draft.drink)
+                } catch {
+                    if let j = log.firstIndex(where: { $0.id == entryID || $0.id == realID }) {
+                        var restored = previous
+                        restored.id = realID
+                        log[j] = restored
+                    }
+                    reportSaveError(error)
+                }
+            }
+        } else {
+            let tempID = "tmp-\(UUID().uuidString)"
+            log.insert(LogEntry(id: tempID, date: draft.date, drink: draft.drink,
+                                amount: draft.amount, size: draft.size, notes: draft.notes), at: 0)
+            showToast("Logged — cheers!")
+            pendingCreates[tempID] = Task {
+                defer { pendingCreates[tempID] = nil }
+                do {
+                    let created = try await api.addLog(payload)
+                    if let j = log.firstIndex(where: { $0.id == tempID }) {
+                        log[j].id = created.id
+                    }
+                    refreshCatalogIfNew(draft.drink)
+                    return created.id
+                } catch {
+                    log.removeAll { $0.id == tempID }
+                    reportSaveError(error)
+                    return nil
+                }
+            }
         }
+        return true
     }
 
     @discardableResult
     func deleteLog(id: String) async -> Bool {
-        guard let api else { return false }
-        do {
-            try await api.deleteLog(id: id)
-            log.removeAll { $0.id == id }
-            return true
-        } catch {
-            errorMessage = friendly(error)
-            return false
+        guard let api, let i = log.firstIndex(where: { $0.id == id }) else { return false }
+        let removed = log.remove(at: i)
+        Task {
+            guard let realID = await resolveID(id) else { return }
+            do {
+                try await api.deleteLog(id: realID)
+            } catch {
+                var restored = removed
+                restored.id = realID
+                log.insert(restored, at: min(i, log.count))
+                reportSaveError(error)
+            }
         }
+        return true
     }
 
     @discardableResult
     func saveCatalog(id: Int, payload: DrinkPayload) async -> Bool {
-        guard let api else { return false }
-        do {
-            let updated = try await api.updateCatalog(id: id, payload)
-            if let i = catalog.firstIndex(where: { $0.id == id }) {
-                catalog[i] = updated
+        guard let api, let i = catalog.firstIndex(where: { $0.id == id }) else { return false }
+        let previous = catalog[i]
+        // payload.image is a raw filename; the server replies with a signed URL for it.
+        // Until then keep showing the current photo (or none, if it was removed).
+        catalog[i] = Drink(id: id, brewery: payload.brewery, drink: payload.drink, abv: payload.abv,
+                           rating: payload.rating, image: payload.image.isEmpty ? "" : previous.image,
+                           notes: payload.notes)
+        Task {
+            do {
+                let updated = try await api.updateCatalog(id: id, payload)
+                if let j = catalog.firstIndex(where: { $0.id == id }) { catalog[j] = updated }
+            } catch {
+                if let j = catalog.firstIndex(where: { $0.id == id }) { catalog[j] = previous }
+                reportSaveError(error)
             }
-            return true
-        } catch {
-            errorMessage = friendly(error)
-            return false
         }
+        return true
+    }
+
+    private func reportSaveError(_ error: Error) {
+        let detail = friendly(error)
+        errorMessage = "Couldn't save — your change was undone. \(detail)"
     }
 
     /// Returns an error message on failure, nil on success (409 means the drink is used in the log).
