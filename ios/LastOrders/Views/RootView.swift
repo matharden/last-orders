@@ -15,10 +15,7 @@ struct RootView: View {
                 if state.isLoading {
                     VStack {
                         Spacer()
-                        Text("loading…")
-                            .font(.mono(13))
-                            .tracking(1.8)
-                            .foregroundStyle(p.ink3)
+                        PourLoader()
                         Spacer()
                     }
                 } else {
