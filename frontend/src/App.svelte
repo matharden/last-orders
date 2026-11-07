@@ -1,5 +1,5 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { activeTab, theme, refreshAll, loading, sheet, saveError } from './lib/stores.js';
   import PourLoader from './lib/PourLoader.svelte';
   import BottomNav from './lib/BottomNav.svelte';
@@ -22,6 +22,21 @@
     const status = await refreshAll();
     if (status === 401) showLoginScreen = true;
   });
+
+  // Each tab keeps its own scroll position. The subscriber runs synchronously
+  // on activeTab.set(), before Svelte swaps the view, so window.scrollY still
+  // belongs to the tab being left. After the new view renders, restore its
+  // saved position (or the top on first visit).
+  const scrollByTab = {};
+  let currentTab;
+  onMount(() => activeTab.subscribe(async tab => {
+    if (currentTab === undefined) { currentTab = tab; return; }
+    if (tab === currentTab) return;
+    scrollByTab[currentTab] = window.scrollY;
+    currentTab = tab;
+    await tick();
+    window.scrollTo(0, scrollByTab[tab] ?? 0);
+  }));
 
   $: if (typeof document !== 'undefined') {
     document.body.classList.toggle('no-scroll', $sheet.open);
