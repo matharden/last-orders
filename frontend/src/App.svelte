@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { activeTab, theme, refreshAll, loading, sheet, saveError } from './lib/stores.js';
+  import PourLoader from './lib/PourLoader.svelte';
   import BottomNav from './lib/BottomNav.svelte';
   import LogSheet from './lib/LogSheet.svelte';
   import Home from './routes/Home.svelte';
@@ -55,7 +56,7 @@
 
 {#if $loading}
   <div class="loader">
-    <span class="mono">loading…</span>
+    <PourLoader />
   </div>
 {:else if showLoginScreen}
   <div class="welcome-screen fade">
