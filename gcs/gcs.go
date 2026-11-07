@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
@@ -90,6 +91,9 @@ func Upload(ctx context.Context, email, filename string, r io.Reader) error {
 
 	obj := client.Bucket(bucketName).Object(objectKey)
 	w := obj.NewWriter(ctx)
+	// Upload names are unique (see main.go), so an object never changes and
+	// browsers can cache it for as long as they like.
+	w.CacheControl = "private, max-age=31536000, immutable"
 
 	if _, err := io.Copy(w, r); err != nil {
 		return fmt.Errorf("failed to copy data to GCS: %v", err)
@@ -102,34 +106,101 @@ func Upload(ctx context.Context, email, filename string, r io.Reader) error {
 	return nil
 }
 
-// SignURL generates a temporary secure GET link for the user's image
+// Signed URLs last close to the V4 maximum of 7 days and are reused until they
+// have less than a day left. Reusing the same URL means browsers and iOS can
+// serve the photo from their HTTP cache, and on Cloud Run (no local key) it
+// avoids an IAM signBlob network call per photo on every catalog load.
+const (
+	signedURLLifetime = 7*24*time.Hour - time.Hour
+	signedURLMinLeft  = 24 * time.Hour
+	maxParallelSigns  = 8
+)
+
+type cachedURL struct {
+	url     string
+	expires time.Time
+}
+
+var (
+	urlCacheMu sync.Mutex
+	urlCache   = map[string]cachedURL{}
+)
+
+// SignURL returns a signed GET link for the user's image, from cache when possible.
 func SignURL(email, filename string) (string, error) {
 	if client == nil {
 		return "", fmt.Errorf("GCS client not initialized")
 	}
 
-	userPrefix := GetUserPrefix(email)
-	objectKey := fmt.Sprintf("users/%s/%s", userPrefix, filename)
+	objectKey := fmt.Sprintf("users/%s/%s", GetUserPrefix(email), filename)
 
+	urlCacheMu.Lock()
+	c, ok := urlCache[objectKey]
+	urlCacheMu.Unlock()
+	if ok && time.Until(c.expires) > signedURLMinLeft {
+		return c.url, nil
+	}
+
+	expires := time.Now().Add(signedURLLifetime)
+	url, signed := signObject(objectKey, expires)
+	if signed {
+		urlCacheMu.Lock()
+		urlCache[objectKey] = cachedURL{url: url, expires: expires}
+		urlCacheMu.Unlock()
+	}
+	return url, nil
+}
+
+// SignURLs signs many filenames at once, in parallel, returning filename -> URL.
+func SignURLs(email string, filenames []string) map[string]string {
+	result := make(map[string]string, len(filenames))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, maxParallelSigns)
+	seen := map[string]bool{}
+	for _, f := range filenames {
+		if f == "" || seen[f] {
+			continue
+		}
+		seen[f] = true
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(f string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if url, err := SignURL(email, f); err == nil {
+				mu.Lock()
+				result[f] = url
+				mu.Unlock()
+			}
+		}(f)
+	}
+	wg.Wait()
+	return result
+}
+
+// signObject signs a GET URL for objectKey. signed is false when signing failed
+// and a direct (public-bucket) link was returned instead; that isn't cached.
+func signObject(objectKey string, expires time.Time) (url string, signed bool) {
 	// If we have private key credentials, we can sign locally
 	if saEmail != "" && len(saPrivKey) > 0 {
 		url, err := storage.SignedURL(bucketName, objectKey, &storage.SignedURLOptions{
 			GoogleAccessID: saEmail,
 			PrivateKey:     saPrivKey,
 			Method:         "GET",
-			Expires:        time.Now().Add(15 * time.Minute),
+			Expires:        expires,
 			Scheme:         storage.SigningSchemeV4,
 		})
 		if err == nil {
-			return url, nil
+			return url, true
 		}
 	}
 
-	// Fall back to signing with the client itself if credentials aren't loaded (like Cloud Run default SA)
-	// Cloud Run default credentials can sign using signing options
+	// Fall back to signing with the client itself if credentials aren't loaded
+	// (e.g. Cloud Run's service account, which signs via the IAM signBlob API).
 	opts := &storage.SignedURLOptions{
 		Method:  "GET",
-		Expires: time.Now().Add(15 * time.Minute),
+		Expires: expires,
 		Scheme:  storage.SigningSchemeV4,
 	}
 	if saEmail != "" {
@@ -140,8 +211,8 @@ func SignURL(email, filename string) (string, error) {
 	if err != nil {
 		log.Printf("GCS URL signing failed (using direct link fallback): %v", err)
 		// If both fail, return a fallback direct link (which will only work if bucket is public)
-		return fmt.Sprintf("https://storage.googleapis.com/%s/%s", bucketName, objectKey), nil
+		return fmt.Sprintf("https://storage.googleapis.com/%s/%s", bucketName, objectKey), false
 	}
 
-	return url, nil
+	return url, true
 }

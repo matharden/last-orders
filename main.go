@@ -368,7 +368,15 @@ func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
 	if hasHeader(rows) {
 		start = 1
 	}
-	email := emailFromRequest(r)
+	// Sign all photo URLs up front, in parallel (cached across requests).
+	var imageNames []string
+	for _, row := range rows[start:] {
+		if img := cellString(row, 5); img != "" && !strings.HasPrefix(img, "http://") && !strings.HasPrefix(img, "https://") {
+			imageNames = append(imageNames, img)
+		}
+	}
+	signed := gcs.SignURLs(emailFromRequest(r), imageNames)
+
 	for _, row := range rows[start:] {
 		if len(row) < 3 {
 			continue
@@ -389,7 +397,7 @@ func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
 			if imgVal != "" {
 				if strings.HasPrefix(imgVal, "http://") || strings.HasPrefix(imgVal, "https://") {
 					d.Image = imgVal
-				} else if signedURL, err := gcs.SignURL(email, imgVal); err == nil {
+				} else if signedURL, ok := signed[imgVal]; ok {
 					d.Image = signedURL
 				} else {
 					d.Image = imgVal
@@ -724,6 +732,10 @@ func handleApiUpload(w http.ResponseWriter, r *http.Request) {
 	if filename == "" {
 		filename = "image.png"
 	}
+	// Make every upload name unique so a stored photo never changes. That keeps
+	// cached signed URLs and browser caches correct when a name is reused
+	// (e.g. two different photos both called IMG_0001.jpg).
+	filename = fmt.Sprintf("%d-%s", time.Now().UnixMilli(), filename)
 
 	err = gcs.Upload(r.Context(), email, filename, file)
 	if err != nil {
