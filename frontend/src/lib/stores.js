@@ -79,17 +79,32 @@ export async function updateCatalogEntry(id, entry) {
 export async function fetchCatalog() {
   const res = await fetch('/api/catalog');
   if (res.ok) catalog.set((await res.json()) || []);
+  return res.status;
 }
 
 export async function fetchLog() {
   const res = await fetch('/api/log');
   if (res.ok) log.set((await res.json()) || []);
+  return res.status;
 }
 
+// Returns 401 if the user isn't signed in, otherwise the catalog status.
 export async function refreshAll() {
   loading.set(true);
-  try { await Promise.all([fetchCatalog(), fetchLog()]); }
+  try {
+    const [catalogStatus, logStatus] = await Promise.all([fetchCatalog(), fetchLog()]);
+    return logStatus === 401 ? 401 : catalogStatus;
+  }
   finally { loading.set(false); }
+}
+
+// The server adds unknown drinks to the catalog (Booze sheet) when they're logged,
+// so refresh the Cellar in the background if this drink isn't in it yet.
+function refreshCatalogIfNew(drinkName) {
+  const name = (drinkName || '').trim().toLowerCase();
+  let known = false;
+  catalog.update(c => { known = c.some(d => d.drink.trim().toLowerCase() === name); return c; });
+  if (name && !known) fetchCatalog();
 }
 
 export async function addLogEntry(entry) {
@@ -106,6 +121,7 @@ export async function addLogEntry(entry) {
     } else {
       await fetchLog();
     }
+    refreshCatalogIfNew(entry.drink);
   }
   return res.ok;
 }
@@ -118,6 +134,7 @@ export async function updateLogEntry(id, entry) {
   });
   if (res.ok) {
     log.update(l => l.map(e => e.id === id ? { ...e, ...entry } : e));
+    refreshCatalogIfNew(entry.drink);
   }
   return res.ok;
 }

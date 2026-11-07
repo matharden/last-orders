@@ -15,13 +15,11 @@
   }
 
   onMount(async () => {
-    const res = await fetch('/api/catalog');
-    if (res.status === 401) {
-      showLoginScreen = true;
-      loading.set(false);
-      return;
-    }
-    await refreshAll();
+    // One round of requests: refreshAll fetches catalog + log in parallel and
+    // reports 401 so we can show the login screen (previously /api/catalog was
+    // fetched once just to check auth, then again inside refreshAll).
+    const status = await refreshAll();
+    if (status === 401) showLoginScreen = true;
   });
 
   $: if (typeof document !== 'undefined') {
