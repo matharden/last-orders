@@ -88,6 +88,11 @@ ENV_VARS_LIST=(
   "GCS_BUCKET_NAME=$GCS_BUCKET_NAME"
   "ENV=production"
 )
+# Optional: key for signing session tokens. If unset, the server derives one from
+# GOOGLE_CLIENT_SECRET. Use a value without commas (e.g. `openssl rand -hex 32`).
+if [ -n "$SESSION_SECRET" ]; then
+  ENV_VARS_LIST+=("SESSION_SECRET=$SESSION_SECRET")
+fi
 
 # Join the array elements with commas
 ENV_VARS=$(IFS=,; echo "${ENV_VARS_LIST[*]}")

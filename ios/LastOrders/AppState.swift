@@ -44,8 +44,45 @@ final class AppState {
         didSet { UserDefaults.standard.set(serverURL, forKey: "serverURL") }
     }
 
+    /// Email of the signed-in Google account (display only; the token is what authenticates).
     var email: String = UserDefaults.standard.string(forKey: "email") ?? "" {
         didSet { UserDefaults.standard.set(email, forKey: "email") }
+    }
+
+    /// Signed session token from the server, kept in the Keychain.
+    var authToken: String? = TokenStore.load()
+
+    var isSignedIn: Bool { authToken != nil }
+
+    var baseURL: URL? {
+        let trimmedURL = serverURL.trimmingCharacters(in: .whitespaces)
+        guard let url = URL(string: trimmedURL), url.scheme != nil else { return nil }
+        return url
+    }
+
+    /// Server page that starts Google sign-in and redirects back to lastorders://auth.
+    var loginURL: URL? {
+        guard let baseURL else { return nil }
+        var comps = URLComponents(url: baseURL.appending(path: "login"), resolvingAgainstBaseURL: false)
+        comps?.queryItems = [URLQueryItem(name: "app", value: "ios")]
+        return comps?.url
+    }
+
+    func completeSignIn(callbackURL: URL) -> Bool {
+        guard let cb = AuthCallback(url: callbackURL) else { return false }
+        TokenStore.save(cb.token)
+        authToken = cb.token
+        email = cb.email
+        errorMessage = nil
+        return true
+    }
+
+    func signOut() {
+        TokenStore.clear()
+        authToken = nil
+        email = ""
+        catalog = []
+        log = []
     }
 
     // MARK: - Data
@@ -66,10 +103,9 @@ final class AppState {
     var isConfigured: Bool { api != nil }
 
     var api: APIClient? {
-        let trimmedEmail = email.trimmingCharacters(in: .whitespaces)
-        let trimmedURL = serverURL.trimmingCharacters(in: .whitespaces)
-        guard !trimmedEmail.isEmpty, let url = URL(string: trimmedURL), url.scheme != nil else { return nil }
-        return APIClient(baseURL: url, email: trimmedEmail)
+        // Re-read the Keychain: APIClient may have stored a renewed token.
+        guard let url = baseURL, let token = TokenStore.load() ?? authToken else { return nil }
+        return APIClient(baseURL: url, token: token)
     }
 
     var enrichedLog: [EnrichedEntry] {
@@ -100,7 +136,7 @@ final class AppState {
 
     func refresh() async {
         guard let api else {
-            errorMessage = "Set the server URL and your email in Settings."
+            errorMessage = "Sign in with Google in Settings."
             isLoading = false
             return
         }
@@ -211,7 +247,9 @@ final class AppState {
     private func friendly(_ error: Error) -> String {
         if let apiError = error as? APIError {
             if apiError.status == 401 {
-                return "Unauthorized — check your email in Settings."
+                // Token rejected (expired or the server's key changed): sign out so Settings offers sign-in.
+                signOut()
+                return "Signed out — sign in again in Settings."
             }
             return apiError.localizedDescription
         }

@@ -1,13 +1,14 @@
 package main
 
 import (
-	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	neturl "net/url"
 	"os"
 	"sort"
 	"strings"
@@ -22,16 +23,13 @@ import (
 
 var (
 	googleOauthConfig *oauth2.Config
-	oauthStateString  = generateStateOauthCookie()
 	authorizedEmail   string
 )
 
-// Config is now initialized in main()
-
-func generateStateOauthCookie() string {
+func randomState() string {
 	b := make([]byte, 16)
 	rand.Read(b)
-	return base64.URLEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 func main() {
@@ -47,6 +45,7 @@ func main() {
 		Scopes:       []string{"https://www.googleapis.com/auth/userinfo.email"},
 		Endpoint:     google.Endpoint,
 	}
+	initSessionKey()
 
 	// Initialize sheets client
 	err := sheets.Init()
@@ -64,7 +63,8 @@ func main() {
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static"))
-	mux.Handle("/", authMiddleware(fs))
+	// The SPA shell is public; it shows the sign-in screen when /api/* returns 401.
+	mux.Handle("/", fs)
 
 	// Auth routes
 	mux.HandleFunc("/login", handleGoogleLogin)
@@ -89,23 +89,42 @@ func main() {
 }
 
 func handleGoogleLogin(w http.ResponseWriter, r *http.Request) {
-	url := googleOauthConfig.AuthCodeURL(oauthStateString, oauth2.SetAuthURLParam("prompt", "select_account"))
+	// The state lives in a short-lived cookie rather than server memory, so the
+	// callback works even if Cloud Run routes it to a different instance.
+	state := randomState()
+	if r.URL.Query().Get("app") == "ios" {
+		state += ".ios"
+	}
+	http.SetCookie(w, &http.Cookie{
+		Name:     stateCookieName,
+		Value:    state,
+		Path:     "/",
+		MaxAge:   600,
+		HttpOnly: true,
+		Secure:   isProduction(),
+		SameSite: http.SameSiteLaxMode,
+	})
+	url := googleOauthConfig.AuthCodeURL(state)
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
-	if r.FormValue("state") != oauthStateString {
+	stateCookie, err := r.Cookie(stateCookieName)
+	state := r.FormValue("state")
+	if err != nil || state == "" || !hmac.Equal([]byte(stateCookie.Value), []byte(state)) {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
+	clearCookie(w, stateCookieName)
+	isApp := strings.HasSuffix(state, ".ios")
 
-	token, err := googleOauthConfig.Exchange(context.Background(), r.FormValue("code"))
+	token, err := googleOauthConfig.Exchange(r.Context(), r.FormValue("code"))
 	if err != nil {
 		http.Error(w, "Code exchange failed", http.StatusInternalServerError)
 		return
 	}
 
-	client := googleOauthConfig.Client(context.Background(), token)
+	client := googleOauthConfig.Client(r.Context(), token)
 	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
 	if err != nil {
 		http.Error(w, "Failed to get user info", http.StatusInternalServerError)
@@ -114,27 +133,29 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	var userInfo struct {
-		Email string `json:"email"`
+		Email         string `json:"email"`
+		VerifiedEmail bool   `json:"verified_email"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&userInfo); err != nil {
 		http.Error(w, "Failed to decode user info", http.StatusInternalServerError)
 		return
 	}
 
-	if authorizedEmail != "" && userInfo.Email != authorizedEmail {
+	if userInfo.Email == "" || !userInfo.VerifiedEmail ||
+		(authorizedEmail != "" && !strings.EqualFold(userInfo.Email, authorizedEmail)) {
 		http.Error(w, "Unauthorized email address", http.StatusUnauthorized)
 		return
 	}
 
-	// Set a simple cookie for demonstration. In production, use signed JWT or gorilla/sessions
-	cookie := &http.Cookie{
-		Name:     "auth_session",
-		Value:    userInfo.Email,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   os.Getenv("ENV") == "production",
+	if isApp {
+		q := neturl.Values{}
+		q.Set("token", issueToken(userInfo.Email, appSessionTTL))
+		q.Set("email", userInfo.Email)
+		http.Redirect(w, r, iosCallbackURL+"?"+q.Encode(), http.StatusFound)
+		return
 	}
-	http.SetCookie(w, cookie)
+
+	setSessionCookie(w, issueToken(userInfo.Email, webSessionTTL))
 	frontendURL := os.Getenv("FRONTEND_URL")
 	if frontendURL == "" {
 		frontendURL = "/"
@@ -143,48 +164,8 @@ func handleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogout(w http.ResponseWriter, r *http.Request) {
-	cookie := &http.Cookie{
-		Name:   "auth_session",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
-	}
-	http.SetCookie(w, cookie)
+	clearCookie(w, sessionCookieName)
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-}
-
-func authMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Bypass auth for login and callback
-		if r.URL.Path == "/login" || r.URL.Path == "/callback" {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		cookie, err := r.Cookie("auth_session")
-		if err != nil || cookie.Value == "" {
-			// If not authenticated and asking for an API, return 401
-			if len(r.URL.Path) > 4 && r.URL.Path[:4] == "/api" {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			// Otherwise, let non-API requests (static files) fall through
-			next.ServeHTTP(w, r)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func authMiddlewareFunc(next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie("auth_session")
-		if err != nil || cookie.Value == "" {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next(w, r)
-	}
 }
 
 func handleApiData(w http.ResponseWriter, r *http.Request) {
@@ -715,14 +696,8 @@ func handleApiCatalog(w http.ResponseWriter, r *http.Request) {
 				if strings.HasPrefix(imgVal, "http://") || strings.HasPrefix(imgVal, "https://") {
 					d.Image = imgVal
 				} else {
-					cookie, err := r.Cookie("auth_session")
-					if err == nil && cookie.Value != "" {
-						signedURL, err := gcs.SignURL(cookie.Value, imgVal)
-						if err == nil {
-							d.Image = signedURL
-						} else {
-							d.Image = imgVal
-						}
+					if signedURL, err := gcs.SignURL(emailFromRequest(r), imgVal); err == nil {
+						d.Image = signedURL
 					} else {
 						d.Image = imgVal
 					}
@@ -806,11 +781,8 @@ func handleApiCatalogItem(w http.ResponseWriter, r *http.Request) {
 
 		responseImage := imageToSave
 		if imageToSave != "" && !strings.HasPrefix(imageToSave, "http://") && !strings.HasPrefix(imageToSave, "https://") {
-			cookie, err := r.Cookie("auth_session")
-			if err == nil && cookie.Value != "" {
-				if signedURL, err := gcs.SignURL(cookie.Value, imageToSave); err == nil {
-					responseImage = signedURL
-				}
+			if signedURL, err := gcs.SignURL(emailFromRequest(r), imageToSave); err == nil {
+				responseImage = signedURL
 			}
 		}
 
@@ -1035,15 +1007,10 @@ func handleApiUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cookie, err := r.Cookie("auth_session")
-	if err != nil || cookie.Value == "" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	email := cookie.Value
+	email := emailFromRequest(r)
 
 	// limit uploads to 5MB
-	err = r.ParseMultipartForm(5 << 20)
+	err := r.ParseMultipartForm(5 << 20)
 	if err != nil {
 		http.Error(w, "Payload too large", http.StatusRequestEntityTooLarge)
 		return

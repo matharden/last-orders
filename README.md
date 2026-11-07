@@ -34,6 +34,9 @@ GOOGLE_CLIENT_SECRET="your-oauth-client-secret"
 OAUTH_REDIRECT_URL="http://localhost:8080/callback"
 AUTHORIZED_EMAIL="your.email@gmail.com" # Only this email can log in
 FRONTEND_URL="http://localhost:5173"
+# Optional: key for signing sign-in sessions (e.g. `openssl rand -hex 32`).
+# If unset it is derived from GOOGLE_CLIENT_SECRET. Changing it signs everyone out.
+SESSION_SECRET=""
 ```
 
 ### Setup Steps
@@ -97,13 +100,13 @@ For any future changes, just run `./deploy.sh`. The script will automatically de
 A native SwiftUI port of the app lives in `ios/` (`ios/LastOrders.xcodeproj`). It is a full client for the same backend — Home (weekly measure), Journal, Stats, and Cellar screens, plus the log/edit bottom sheets and catalog photo upload — with the same UK-units maths as the web frontend (`ios/LastOrders/Units.swift` mirrors `frontend/src/lib/units.js`; keep them in sync).
 
 *   **Backend:** Talks to the deployed Cloud Run service over the existing `/api/*` endpoints. No backend changes are required.
-*   **Auth:** Matches the server's session model — it sends `auth_session=<email>` as a cookie with every request. The server URL and email are configured in the app's Settings sheet (shown automatically on first launch).
+*   **Auth:** Tap *Sign in with Google* in Settings (shown automatically on first launch). The app opens the server's `/login?app=ios`, and the server's `/callback` hands back a signed session token via `lastorders://auth`. The token is stored in the Keychain, sent as `Authorization: Bearer <token>`, lasts a year and is renewed automatically (`X-Session-Token` response header). The web app gets the same kind of signed token in its `auth_session` cookie, valid for 90 days and renewed while in use.
 *   **Requirements:** Xcode 16+, iOS 17+.
 
 ### Running on your iPhone
 1. Open `ios/LastOrders.xcodeproj` in Xcode.
 2. Select the *LastOrders* target → Signing & Capabilities → choose your personal team (a free Apple ID works).
 3. Plug in your iPhone (enable Developer Mode under Settings → Privacy & Security if prompted), select it as the run destination, and press Run.
-4. In the app's Settings sheet, confirm the server URL and enter the email your server's `AUTHORIZED_EMAIL` is set to.
+4. In the app's Settings sheet, confirm the server URL and tap *Sign in with Google* using the account your server's `AUTHORIZED_EMAIL` is set to.
 
 > Note: with a free (non-paid) Apple developer account, the app signature expires after 7 days — just press Run again to reinstall.

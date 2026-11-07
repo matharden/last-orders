@@ -8,17 +8,18 @@ struct APIError: LocalizedError {
     }
 }
 
-/// Thin client for the Go backend. Auth matches the server's model: it only
-/// checks for a non-empty `auth_session` cookie, whose value is the user's email.
+/// Thin client for the Go backend. Auth: sends the signed session token from
+/// Google sign-in as a Bearer token. The server sends a fresh token in
+/// `X-Session-Token` when the current one is getting old; we store it.
 struct APIClient {
     let baseURL: URL
-    let email: String
+    let token: String
 
     private func makeRequest(_ path: String, method: String = "GET") -> URLRequest {
         var req = URLRequest(url: baseURL.appending(path: path))
         req.httpMethod = method
         req.httpShouldHandleCookies = false
-        req.setValue("auth_session=\(email)", forHTTPHeaderField: "Cookie")
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         return req
     }
 
@@ -26,6 +27,9 @@ struct APIClient {
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse else {
             throw APIError(status: 0, message: "No response from server")
+        }
+        if let renewed = http.value(forHTTPHeaderField: "X-Session-Token"), !renewed.isEmpty {
+            TokenStore.save(renewed)
         }
         guard (200..<300).contains(http.statusCode) else {
             let body = String(data: data, encoding: .utf8)?
