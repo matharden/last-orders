@@ -8,8 +8,25 @@
     { id: 'catalog', label: 'Beers',   icon: 'search' },
   ];
 
+  // Crown-cap skirt: 21 rounded flutes around a 100×100 viewBox.
+  const FLUTES = 21;
+  const capPath = (() => {
+    const pt = (r, a) => `${(50 + r * Math.sin(a)).toFixed(2)} ${(50 - r * Math.cos(a)).toFixed(2)}`;
+    const step = (2 * Math.PI) / FLUTES;
+    let d = `M ${pt(42.5, 0)}`;
+    for (let i = 0; i < FLUTES; i++) {
+      d += ` Q ${pt(51.5, (i + 0.5) * step)} ${pt(42.5, (i + 1) * step)}`;
+    }
+    return d + ' Z';
+  })();
+  const flutes = Array.from({ length: FLUTES }, (_, i) => ((i + 0.5) * 360) / FLUTES);
+
+  // Let the cap pop up at the bottom edge before the sheet slides up.
+  let flipping = false;
   function openSheet() {
-    sheet.update(s => ({ ...s, open: true }));
+    if (flipping) return;
+    flipping = true;
+    setTimeout(() => sheet.update(s => ({ ...s, open: true })), 160);
   }
 </script>
 
@@ -31,9 +48,38 @@
     <span class="mono">Bar tab</span>
   </button>
 
-  <button class="fab" on:click={openSheet} aria-label="Log a drink">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-      <path d="M12 5v14M5 12h14"/>
+  <button class="fab" class:flipping on:click={openSheet} on:animationend={() => (flipping = false)} aria-label="Put on tab">
+    <svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <radialGradient id="cap-metal" cx="38%" cy="32%" r="75%">
+          <stop offset="0%" stop-color="#fff3d2"/>
+          <stop offset="28%" stop-color="var(--gold)"/>
+          <stop offset="75%" stop-color="var(--amber)"/>
+          <stop offset="100%" stop-color="var(--amber-2)"/>
+        </radialGradient>
+        <path id="cap-arc-top" d="M 27.5 50 A 22.5 22.5 0 0 1 72.5 50"/>
+      </defs>
+
+      <!-- crimped skirt -->
+      <path d={capPath} fill="url(#cap-metal)" stroke="var(--amber-2)" stroke-width=".8" stroke-linejoin="round"/>
+      {#each flutes as deg}
+        <line x1="50" y1="6" x2="50" y2="12" transform="rotate({deg} 50 50)"
+              stroke="#fff6dc" stroke-opacity=".3" stroke-width="1.2" stroke-linecap="round"/>
+      {/each}
+      <!-- fold where the skirt meets the crown -->
+      <circle cx="50" cy="50" r="38.5" fill="none" stroke="var(--amber-2)" stroke-opacity=".55" stroke-width="1.2"/>
+
+      <!-- printed crown -->
+      <circle cx="50" cy="50" r="36" fill="#3a1f10"/>
+      <circle cx="50" cy="50" r="32.5" fill="none" stroke="var(--gold)" stroke-width="1"/>
+      <circle cx="50" cy="50" r="31" fill="none" stroke="var(--gold)" stroke-width=".4"/>
+
+      <text class="cap-arc" fill="var(--gold)">
+        <textPath href="#cap-arc-top" startOffset="50%" text-anchor="middle">PUT ON</textPath>
+      </text>
+      <path d="M 33 47 H 67 M 33 64 H 67" stroke="var(--gold)" stroke-width=".6"/>
+      <text class="cap-word" x="50" y="61.5" text-anchor="middle" fill="#f6e7c4">Tab</text>
+      <text class="cap-stars" x="50" y="75" text-anchor="middle" fill="var(--gold)">★ ★ ★</text>
     </svg>
   </button>
 
@@ -102,12 +148,12 @@ nav {
 .tab.active { color: var(--amber); }
 
 .fab {
-  width: 54px;
-  height: 54px;
+  width: 62px;
+  height: 62px;
+  padding: 0;
   border-radius: 50%;
   border: none;
-  background: radial-gradient(ellipse at 60% 40%, var(--gold), var(--amber));
-  color: #fff;
+  background: none;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -115,8 +161,29 @@ nav {
   box-shadow: var(--fab-shadow);
   flex-shrink: 0;
   margin-bottom: 8px;
-  transition: transform .15s;
+  transition: transform .2s;
 }
-.fab:active { transform: scale(.93); }
-.fab svg { width: 24px; height: 24px; }
+.fab:active:not(.flipping) { transform: scale(.94); }
+/* pops up at the bottom edge, hinged on the top, then settles back */
+.fab.flipping { animation: cap-pop .42s cubic-bezier(.3,.7,.4,1); transform-origin: 50% 8%; }
+@keyframes cap-pop {
+  0%   { transform: perspective(200px) rotateX(0); }
+  35%  { transform: perspective(200px) rotateX(30deg); }
+  100% { transform: perspective(200px) rotateX(0); }
+}
+
+.fab svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.cap-arc {
+  font-family: 'Spline Sans Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .12em;
+}
+.cap-word {
+  font-family: 'Newsreader', serif;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+}
+.cap-stars { font-size: 5px; letter-spacing: .3em; }
 </style>
