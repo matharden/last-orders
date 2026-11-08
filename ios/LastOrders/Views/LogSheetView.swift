@@ -114,12 +114,9 @@ struct LogSheetView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(isEditing ? "Edit entry" : "Pour one in")
+                Text(isEditing ? "Edit entry" : "Put it on the tab")
                     .font(.serif(23, .semibold))
                     .foregroundStyle(p.ink)
-                Text(isEditing ? "Update or delete this log entry." : "Log a drink to your bar tab.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(p.ink2)
             }
             Spacer()
             if isEditing {

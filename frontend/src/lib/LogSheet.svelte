@@ -96,8 +96,7 @@
   <form class="sheet" role="dialog" aria-modal="true" on:submit|preventDefault={save}>
     <div class="sheet-header">
       <div>
-        <h2 class="newsreader">{$sheet.id ? 'Edit entry' : 'Pour one in'}</h2>
-        <p class="hint">{$sheet.id ? 'Update or delete this log entry.' : 'Log a drink to your bar tab.'}</p>
+        <h2 class="newsreader">{$sheet.id ? 'Edit entry' : 'Put it on the tab'}</h2>
       </div>
       {#if $sheet.id}
         <button type="button" class="delete-btn" on:click={handleDelete} aria-label="Delete entry">
