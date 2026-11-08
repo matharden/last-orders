@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   import { updateCatalogEntry, deleteCatalogEntry, log } from './stores.js';
 
   export let drink = null; // Drink object to edit; null = closed
@@ -29,6 +29,12 @@
   }
 
   function close() { dispatch('close'); }
+
+  // Same as the log sheet: blur the page behind and stop it scrolling while open.
+  $: if (typeof document !== 'undefined') {
+    document.body.classList.toggle('no-scroll', !!drink);
+  }
+  onDestroy(() => document.body.classList.remove('no-scroll'));
 
   function handleFileChange(e) {
     const file = e.target.files[0];
@@ -100,8 +106,6 @@
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="scrim" on:click={close}></div>
   <form class="sheet" role="dialog" aria-modal="true" on:submit|preventDefault={save}>
-    <div class="handle"></div>
-
     <div class="sheet-header">
       <div>
         <h2 class="newsreader">Edit beer</h2>
@@ -220,14 +224,6 @@
   animation: slideUp .3s cubic-bezier(.3,.9,.3,1) forwards;
 }
 @keyframes slideUp { from { transform: translateX(-50%) translateY(102%); } to { transform: translateX(-50%) translateY(0); } }
-
-.handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--card-edge);
-  margin: 0 auto 16px;
-}
 
 .sheet-header {
   display: flex;
