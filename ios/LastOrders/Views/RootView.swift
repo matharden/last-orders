@@ -105,7 +105,7 @@ struct BottomNav: View {
         let p = Palette.of(scheme)
         HStack(alignment: .bottom, spacing: 0) {
             tab(.home, icon: "house", label: "Home")
-            tab(.journal, icon: "wineglass", label: "Journal")
+            tab(.journal, icon: "mug", label: "Bar tab")
 
             Button {
                 state.logDraft = LogDraft()

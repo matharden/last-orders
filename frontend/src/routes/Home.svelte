@@ -99,7 +99,7 @@
     {/each}
     {#if $enrichedLog.length > 4}
       <button class="more-btn mono" on:click={() => activeTab.set('history')}>
-        Read the full journal →
+        Read the full bar tab →
       </button>
     {/if}
   </div>

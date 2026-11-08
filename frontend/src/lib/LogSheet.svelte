@@ -97,7 +97,7 @@
     <div class="sheet-header">
       <div>
         <h2 class="newsreader">{$sheet.id ? 'Edit entry' : 'Pour one in'}</h2>
-        <p class="hint">{$sheet.id ? 'Update or delete this log entry.' : 'Log a drink to your journal.'}</p>
+        <p class="hint">{$sheet.id ? 'Update or delete this log entry.' : 'Log a drink to your bar tab.'}</p>
       </div>
       {#if $sheet.id}
         <button type="button" class="delete-btn" on:click={handleDelete} aria-label="Delete entry">

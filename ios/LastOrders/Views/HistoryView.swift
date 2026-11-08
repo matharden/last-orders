@@ -18,7 +18,7 @@ struct HistoryView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
-                Eyebrow("THE JOURNAL")
+                Eyebrow("THE BAR TAB")
 
                 if groups.isEmpty {
                     Text("No entries yet. Tap + to log your first drink.")

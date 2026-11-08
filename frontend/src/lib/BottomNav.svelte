@@ -3,7 +3,7 @@
 
   const tabs = [
     { id: 'home',    label: 'Cellar',  icon: 'home' },
-    { id: 'history', label: 'Journal', icon: 'list' },
+    { id: 'history', label: 'Bar tab', icon: 'list' },
     { id: 'stats',   label: 'Stats',   icon: 'bar' },
     { id: 'catalog', label: 'Beers',   icon: 'search' },
   ];
@@ -23,11 +23,12 @@
 
   <button class="tab" class:active={$activeTab === 'history'} on:click={() => activeTab.set('history')}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 15a5 5 0 0 0 5-5V4H7v6a5 5 0 0 0 5 5Z"/>
-      <path d="M12 15v6"/>
-      <path d="M9 21h6"/>
+      <path d="M5 8v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V8"/>
+      <path d="M15 10h2a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2"/>
+      <path d="M5 8a2 2 0 0 1 .5-4 3 3 0 0 1 5-1 2.5 2.5 0 0 1 4.5 2 1.5 1.5 0 0 1 0 3z"/>
+      <path d="M9 12v5M12 12v5"/>
     </svg>
-    <span class="mono">Journal</span>
+    <span class="mono">Bar tab</span>
   </button>
 
   <button class="fab" on:click={openSheet} aria-label="Log a drink">

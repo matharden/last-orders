@@ -117,7 +117,7 @@ struct LogSheetView: View {
                 Text(isEditing ? "Edit entry" : "Pour one in")
                     .font(.serif(23, .semibold))
                     .foregroundStyle(p.ink)
-                Text(isEditing ? "Update or delete this log entry." : "Log a drink to your journal.")
+                Text(isEditing ? "Update or delete this log entry." : "Log a drink to your bar tab.")
                     .font(.system(size: 14))
                     .foregroundStyle(p.ink2)
             }

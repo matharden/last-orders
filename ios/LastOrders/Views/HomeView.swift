@@ -196,7 +196,7 @@ struct HomeView: View {
                 Button {
                     state.activeTab = .journal
                 } label: {
-                    Text("READ THE FULL JOURNAL →")
+                    Text("READ THE FULL BAR TAB →")
                         .font(.mono(11, .semibold))
                         .tracking(1.5)
                         .foregroundStyle(p.amber)

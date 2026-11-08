@@ -26,7 +26,7 @@
 </script>
 
 <div class="screen fade">
-  <p class="eyebrow section-eye">THE JOURNAL</p>
+  <p class="eyebrow section-eye">THE BAR TAB</p>
 
   {#each groups as [date, entries]}
     {@const dayUnits = entries.reduce((s, e) => s + e.units, 0)}
