@@ -288,6 +288,18 @@ h2 { font-size: 23px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
   display: block;
   padding: 0;
 }
+.field-input[type="date"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: left;
+}
+.field-input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  margin: 0;
+}
 .size-input { margin-top: 8px; }
 .amount-input {
   flex: 1;
