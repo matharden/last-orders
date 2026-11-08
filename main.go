@@ -76,6 +76,7 @@ func main() {
 	mux.HandleFunc("/api/log/{id}", authMiddlewareFunc(handleApiLogItem))
 	mux.HandleFunc("/api/log", authMiddlewareFunc(handleApiLog))
 	mux.HandleFunc("/api/upload", authMiddlewareFunc(handleApiUpload))
+	mux.HandleFunc("/api/config", authMiddlewareFunc(handleApiConfig))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -747,4 +748,14 @@ func handleApiUpload(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{
 		"filename": filename,
 	})
+}
+
+// handleApiConfig returns app-level details the clients show in settings.
+func handleApiConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"sheetUrl": sheets.SpreadsheetURL()})
 }

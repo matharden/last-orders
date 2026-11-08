@@ -18,6 +18,15 @@ document.documentElement.setAttribute('data-theme', initTheme());
 // ---- Navigation ----
 export const activeTab = writable('home');
 
+// ---- App config (sheet link etc.), loaded when Tankard opens ----
+export const config = writable(null);
+
+export async function fetchConfig() {
+  const res = await fetch('/api/config');
+  if (res.ok) config.set(await res.json());
+  return res.status;
+}
+
 // ---- Log sheet state ----
 export const sheet = writable({
   open: false,

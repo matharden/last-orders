@@ -45,6 +45,14 @@ func Init() error {
 	return nil
 }
 
+// SpreadsheetURL returns the browser link to the backing Google Sheet.
+func SpreadsheetURL() string {
+	if spreadsheetId == "" {
+		return ""
+	}
+	return "https://docs.google.com/spreadsheets/d/" + spreadsheetId + "/edit"
+}
+
 // ReadRange fetches data from a specific range in the spreadsheet
 func ReadRange(rangeName string) ([][]interface{}, error) {
 	if svc == nil {
